@@ -198,7 +198,17 @@ def _url_payload_command(n: int) -> str:
 #: Raised again, from 28,572, for ``StreamRedactor``'s two read-only properties,
 #: ``held`` and ``discarding``, which the Slack stream reads at a ``wait`` instead
 #: of the private fields. No pattern moved.
-_PACKAGE_LINE_BUDGET = 28_582
+#:
+#: Raised again, from 28,582, for the quote-aware neutralize pass on the
+#: self-protection floors (``_neutralize_substitution_spans`` plus the per-payload
+#: re-adjudication in ``argv_floor``'s mint and kill checks): the de-quoted argv
+#: windows could not see a substitution-span decoy whose quoted ``)`` closes the
+#: window early, so the floors re-scan a copy with each span collapsed to one inert
+#: word. The pass also carries a word-start marker for the ``#`` comment rule and
+#: removes heredoc bodies first, so neither an empty quote before a ``#`` nor a
+#: quote inside a heredoc body derails the walk before the decoy. No target,
+#: matching rule or threshold moved.
+_PACKAGE_LINE_BUDGET = 28_925
 
 #: Ceiling on any ONE file in the package. This is what the bound is really for --
 #: a package total says nothing about a single file growing back into a second
