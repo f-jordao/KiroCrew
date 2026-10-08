@@ -368,12 +368,21 @@ class CronSDK:
           30s for a script when it is unset, so without it an app cannot create
           a command job with a wake budget under 305s at all.
         """
-        return dict(
+        # A member name arrives here in ``agent`` exactly as it does on the CLI /
+        # MCP / dashboard create paths; promote it to a member selection with the
+        # one shared resolver so an app-created cron binds the member's memory
+        # instead of recording a non-existent provider template. ``member_id`` is
+        # threaded only when a member resolved, so a non-member create keeps the
+        # exact call shape ``CronService.add_job`` was always given.
+        from kiro_crew.cron_service.identity import split_cron_agent_member
+
+        agent_id, member_id = split_cron_agent_member(agent or "", "")
+        fields = dict(
             name=name,
             message=message,
             every_secs=every_secs,
             cron_expr=cron_expr,
-            agent_id=agent or "",
+            agent_id=agent_id,
             command=command or "",
             script=script or "",
             agent_sequence=agent_sequence or None,
@@ -389,6 +398,9 @@ class CronSDK:
             folder_id=folder_id or "",
             created_by=self._owner_prefix,
         )
+        if member_id:
+            fields["member_id"] = member_id
+        return fields
 
     # ── Create ──
 
