@@ -175,11 +175,20 @@ class _Rig:
             da_digest = None
             if da_file.is_file():
                 da_digest = agent_state.spec_digest(json.loads(da_file.read_text(encoding="utf-8")))
+            # The team-lead stem records the same kind of ownership digest, over bytes that
+            # carry the same scratch paths, so it is folded on the same contract: the value
+            # is stable only as "the digest of the team-lead spec now on disk".
+            tl_file = self.agents / "kirocrew-team-lead.json"
+            tl_digest = None
+            if tl_file.is_file():
+                tl_digest = agent_state.spec_digest(json.loads(tl_file.read_text(encoding="utf-8")))
             for entry in parsed.values():
                 if not isinstance(entry, dict):
                     continue
                 if da_digest is not None and entry.get("managed_digest") == da_digest:
                     entry["managed_digest"] = "<DASHBOARD-AUTHOR-DIGEST>"
+                if tl_digest is not None and entry.get("managed_digest") == tl_digest:
+                    entry["managed_digest"] = "<TEAM-LEAD-DIGEST>"
                 if entry.get("mirrored_stat") == agent.default_spec_identity():
                     entry["mirrored_stat"] = "<DEFAULT-SPEC-IDENTITY>"
                 if entry.get("mirrored_from") == agent.default_spec_fingerprint():
@@ -401,8 +410,9 @@ def materialize(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, scenario: str) 
 #: Digests recorded from the pre-split ``kiro_crew.agent``. See the module docstring.
 GOLDEN: dict[str, dict[str, Any]] = {
     "clean_over_customized": {
-        "events": "01735c00e0c643328e919d7c144abc1ebf0423198c2411f6fff1c1b9d490fed4",
+        "events": "9f7cfe04980041ebd795bfd2b6f0c55886be4c04a01d004c3cf142f9be466756",
         "files": {
+            "kirocrew-team-lead.json": "97c51f645e2477bf26cb4f9e4e32d092cf952343bf3f50f9c16d316144e73926",
             "kirocrew-dashboard-manager.json": "19ba319895584c84459f46e7c343b60f098739ea91598f3603a8a97e1088e548",
             "kirocrew-conductor.json": "69904c7620745aab85461373adcd2bd9a13144f1c608bd0510413ddc0c1d1435",
             "kirocrew-dashboard-author.json": "cbe7acbded8bd0255c466d21fd8e990014452f9b3cd4afb9b74d5ee6354b3366",
@@ -418,12 +428,13 @@ GOLDEN: dict[str, dict[str, Any]] = {
             "kirocrew.json": "c17c9b5642e4ebbd5af51bfa87451f04ef49f575bab53cb255c0e47477ef1e34",
             "kirocrew.lock": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         },
-        "state": "d704db8fc2311b53ecec035ace4d3145224e00ab26bbedeb0a2e6977a7c16aac",
+        "state": "3f05b0e215ac71c35d1915d5bdb3b7461eb29c3bbef4137912eb09e65af51aa3",
         "unrefreshed": [],
     },
     "customized": {
-        "events": "e56f172582bf1559f232e7ffdff02aaeb09009f1ea03ab445d8950c71fddb40c",
+        "events": "e37eb075ceef2f1b3081bd86ee42c7b79c7f89b207f375e3bde8b28f214cff07",
         "files": {
+            "kirocrew-team-lead.json": "97c51f645e2477bf26cb4f9e4e32d092cf952343bf3f50f9c16d316144e73926",
             "kirocrew-dashboard-manager.json": "19ba319895584c84459f46e7c343b60f098739ea91598f3603a8a97e1088e548",
             "kirocrew-conductor.json": "69904c7620745aab85461373adcd2bd9a13144f1c608bd0510413ddc0c1d1435",
             "kirocrew-dashboard-author.json": "cbe7acbded8bd0255c466d21fd8e990014452f9b3cd4afb9b74d5ee6354b3366",
@@ -439,12 +450,13 @@ GOLDEN: dict[str, dict[str, Any]] = {
             "kirocrew.json": "83d2b8b728cf5f1bdfcc3db34eb7af4d359dc4a4133dfdbfe2f9d0c95c4423a8",
             "kirocrew.lock": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         },
-        "state": "939d5770910a05fc49ac6fff3da064f2ff08347839f39e1eadebc5fa964eb6b5",
+        "state": "465c9a79d760e863fe8ca1ff75b6881daf31325dc874c00c1c5689ff32eb11ea",
         "unrefreshed": [],
     },
     "forks": {
-        "events": "69ccf91fca126b49eb87a7fff1bbc60fcb77257837ba68b80e430e0e7663513e",
+        "events": "2478c8f186f0bed520463ba9dff2ab170ce78357e6fb6c352e904be5bd567540",
         "files": {
+            "kirocrew-team-lead.json": "8277e2e0d6735eacd76daaca641256d0ccc8219ecd6b6bb41dd922b05fc2bb25",
             "kirocrew-dashboard-manager.json": "b0acd94a2340838b47536162b679deb66d8d8ff2876d3352437ca15248b18356",
             "kirocrew-conductor.json": "aa427a68dbbf7001830735d8d395adfa43f4273ead308a7a841559161d9c885e",
             "kirocrew-dashboard-author.json": "359ad2ebfe08f8a558f0323f5eabf2a734d11ca4ed27c2bcfd7c2a49de328941",
@@ -462,12 +474,13 @@ GOLDEN: dict[str, dict[str, Any]] = {
             "my-crew.json": "a96a919c845078c29eafe40ee2ef5e224bfd4823c0bf7223547fcc4cc7455e8d",
             "orphan-crew.json": "30c576d8c4eb514bdbb5139402df6588504cc92cfef8b580ec2e16bc98f74056",
         },
-        "state": "cbb4cfdf2675dd8efeed9a8b77fc63ce287172f38fe4db9fad37ecb6654ed485",
+        "state": "c017327cfe021d80142f5e4e1503098b7b144561d77a7779f5bc67d486942a0d",
         "unrefreshed": ["orphan-crew"],
     },
     "fresh": {
-        "events": "0a861cfa593edb1b0684989f72d3776369d42cff9307bc35a9b6b403a0149c33",
+        "events": "4c10427a400719419b66eaf8cad743e8539d6d7c63fa96544bf2973175c69d80",
         "files": {
+            "kirocrew-team-lead.json": "55a348ef53a44b7c416fdccfe1ee07736c3fbd1b61f96a8685254854a23878fb",
             "kirocrew-dashboard-manager.json": "19ba319895584c84459f46e7c343b60f098739ea91598f3603a8a97e1088e548",
             "kirocrew-conductor.json": "aa427a68dbbf7001830735d8d395adfa43f4273ead308a7a841559161d9c885e",
             "kirocrew-dashboard-author.json": "359ad2ebfe08f8a558f0323f5eabf2a734d11ca4ed27c2bcfd7c2a49de328941",
@@ -483,12 +496,13 @@ GOLDEN: dict[str, dict[str, Any]] = {
             "kirocrew.json": "568c9b620c78294534f549d80e7151e46d0bf74b98861106528910d0420bd4d0",
             "kirocrew.lock": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         },
-        "state": "d704db8fc2311b53ecec035ace4d3145224e00ab26bbedeb0a2e6977a7c16aac",
+        "state": "3f05b0e215ac71c35d1915d5bdb3b7461eb29c3bbef4137912eb09e65af51aa3",
         "unrefreshed": [],
     },
     "governed": {
-        "events": "7475ef17e9a3bf2213ec617929886924d72166b630429b260083cbc967e282a8",
+        "events": "2c30ca6bfc90370b4a06172af2a4ee8d6c5e1612b4ec44196e5804e27cbde442",
         "files": {
+            "kirocrew-team-lead.json": "4141d8affa8b74038c78241a85f3095bd05ebea59202681a3b29301880ad0422",
             "kirocrew-dashboard-manager.json": "19ba319895584c84459f46e7c343b60f098739ea91598f3603a8a97e1088e548",
             "kirocrew-conductor.json": "b213549c9b6f8b359a4659486701baf7294f1a47ae4a51f7b6ddd4a87d0b4a4b",
             "kirocrew-dashboard-author.json": "cbe7acbded8bd0255c466d21fd8e990014452f9b3cd4afb9b74d5ee6354b3366",
@@ -504,12 +518,13 @@ GOLDEN: dict[str, dict[str, Any]] = {
             "kirocrew.json": "a859e763ba7b11c6ea9547a9a5d5e45d2bd7c7d7fdb8c2d0df69b799ef9a07e5",
             "kirocrew.lock": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         },
-        "state": "939d5770910a05fc49ac6fff3da064f2ff08347839f39e1eadebc5fa964eb6b5",
+        "state": "465c9a79d760e863fe8ca1ff75b6881daf31325dc874c00c1c5689ff32eb11ea",
         "unrefreshed": [],
     },
     "object_hooks": {
-        "events": "7f89fffedd78c7e8f925b7a24ba93a8151c3a6c28f72a0a3625efc7819873e33",
+        "events": "c7f408870abab909bf7b77c61bc8c7ab69d75c89e6dd90b652e6084308db600b",
         "files": {
+            "kirocrew-team-lead.json": "9989c957ab5cf1767658e11f12704241f1a98352a3ed379d1be226654383095a",
             "kirocrew-dashboard-manager.json": "19ba319895584c84459f46e7c343b60f098739ea91598f3603a8a97e1088e548",
             "kirocrew-conductor.json": "97f1e8101d83f80ef2e2fca3dfcd10ba7ca7cf717a0ccede8e30e72e5d00249a",
             "kirocrew-dashboard-author.json": "816d5e5dd9988c2122f0c2363110deeb3f6384a41400e478ee617e9dfbe4fef3",
@@ -525,12 +540,13 @@ GOLDEN: dict[str, dict[str, Any]] = {
             "kirocrew.json": "7027b1de70978314a306158f540b39fa0f2cedbc30777a1c0412b02ddea2be02",
             "kirocrew.lock": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         },
-        "state": "d704db8fc2311b53ecec035ace4d3145224e00ab26bbedeb0a2e6977a7c16aac",
+        "state": "3f05b0e215ac71c35d1915d5bdb3b7461eb29c3bbef4137912eb09e65af51aa3",
         "unrefreshed": [],
     },
     "registry_mode": {
-        "events": "0a861cfa593edb1b0684989f72d3776369d42cff9307bc35a9b6b403a0149c33",
+        "events": "4c10427a400719419b66eaf8cad743e8539d6d7c63fa96544bf2973175c69d80",
         "files": {
+            "kirocrew-team-lead.json": "35323f0a2c24850993d1b7e0c3e9a21216046abb4a3742ce4a4068174f140a05",
             "kirocrew-dashboard-manager.json": "4b96a77d13a14751d940d8f1d25ab578674db0fdf88e14222bf01b3cc5c86cd8",
             "kirocrew-conductor.json": "8a5cb2e9ed5a08b1b0c8ac48b0c2fd9969bc88894fbc9ab5954b9b31546c8c7a",
             "kirocrew-dashboard-author.json": "d44d7f9bbb91f12cd6107609ca7c80b7bf81d6656bf884192e6c97241d39821d",
@@ -546,12 +562,13 @@ GOLDEN: dict[str, dict[str, Any]] = {
             "kirocrew.json": "1b6c280a7aa5772c6ed1d5457158f61e6a58fb5c8c290e25fe97dfe87b5c2bd5",
             "kirocrew.lock": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         },
-        "state": "d704db8fc2311b53ecec035ace4d3145224e00ab26bbedeb0a2e6977a7c16aac",
+        "state": "3f05b0e215ac71c35d1915d5bdb3b7461eb29c3bbef4137912eb09e65af51aa3",
         "unrefreshed": [],
     },
     "user_hooks": {
-        "events": "4331a4594c606ff23230558f9f6a6fc14e0fe3b58842e3365bcd40c4150d5d0f",
+        "events": "b3351b1dd6d52bd9d032f80a2a23de5e600f382f4327cd057c554caa85bb6e0b",
         "files": {
+            "kirocrew-team-lead.json": "cad817b7c77a5f2b300156c9d763c7b2432201990f6e78dc814ec206cf6770e0",
             "kirocrew-dashboard-manager.json": "19ba319895584c84459f46e7c343b60f098739ea91598f3603a8a97e1088e548",
             "kirocrew-conductor.json": "c06618472a32f3ff0f43353a0531d30c4e27526c156f47d905b808b099b0564b",
             "kirocrew-dashboard-author.json": "d867f2989cb8864b75c88ebfb052c6131ebe1ab123a9020329273edb296cd499",
@@ -567,7 +584,7 @@ GOLDEN: dict[str, dict[str, Any]] = {
             "kirocrew.json": "8c7296c3080cfb10b6429bd7b6b5650b984a0048cc5a35a04480d5af05bd8f3c",
             "kirocrew.lock": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         },
-        "state": "d704db8fc2311b53ecec035ace4d3145224e00ab26bbedeb0a2e6977a7c16aac",
+        "state": "3f05b0e215ac71c35d1915d5bdb3b7461eb29c3bbef4137912eb09e65af51aa3",
         "unrefreshed": [],
     },
 }
