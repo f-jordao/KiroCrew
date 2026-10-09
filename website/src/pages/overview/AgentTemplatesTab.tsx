@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { FileCode2, MessageSquare, UserPlus, Copy, Trash2, Lock, Plus, X, MoreHorizontal, ToggleLeft, ToggleRight } from 'lucide-react'
+import { FileCode2, MessageSquare, UserPlus, Copy, Trash2, Lock, Plus, X, MoreHorizontal, ToggleLeft, ToggleRight, Star } from 'lucide-react'
 import { useAppDispatch } from '../../store'
 import { createSlot } from '../../store/chatSlice'
 import { api, ApiError } from '../../api/client'
@@ -38,6 +38,11 @@ export interface TemplateRow {
   forked_from: string
   private_to: string
   read_only: 'package' | 'runtime' | 'markdown' | 'private_copy' | null
+  /** Whether the default-template picker may offer this row: not a crewmate's
+   *  private copy, not a background-only runtime spec, not an app's agent.
+   *  Independent of `read_only` -- a package template cannot be edited here
+   *  but every session start can reach it. */
+  default_eligible: boolean
   used_by: TemplateReference[]
 }
 
@@ -165,7 +170,8 @@ const referenceHref = (ref: TemplateReference): string | null => {
     case 'schedule': return '/schedule'
     case 'folder': return '/chat'
     case 'webhook': return '/webhooks'
-    case 'default': return '/capabilities?tab=crews'
+    // Changed in the bar above this very list, so there is nowhere to drill.
+    case 'default': return null
     // `label` is the crew the copy belongs to; its Template pane is where a
     // private copy is edited, reset or published.
     case 'private_copy': return ref.label ? `/members?member=${encodeURIComponent(ref.label)}` : null
@@ -459,6 +465,41 @@ export default function AgentTemplatesTab() {
     onError: writeError,
   })
 
+  // The template a session runs when NOTHING names one -- a plain chat, a CLI
+  // chat, a channel thread, a warm-pool process, an agent-less schedule. A
+  // crewmate's DM thread never reads it (the crewmate carries its own
+  // template), which is what the bar's gloss says. Distinct from the Crewmates
+  // tab's "Default crewmate" (`/api/config/default-agent`).
+  const defaultTemplate = useQuery({
+    queryKey: ['default-template'],
+    queryFn: () => api.defaultTemplate(),
+    staleTime: 30_000,
+  })
+  const setDefaultTemplate = useMutation({
+    mutationFn: (name: string) => api.setDefaultTemplate(name),
+    onSuccess: () => {
+      setDefaultTemplateError('')
+      void queryClient.invalidateQueries({ queryKey: ['default-template'] })
+      // The roster's `used_by` carries the "Default template" marker.
+      invalidate()
+    },
+    onError: (e: unknown) => {
+      const code = e instanceof ApiError ? parseErrorCode(e.body) : undefined
+      setDefaultTemplateError(
+        code === 'template_private_copy' || code === 'template_background_only' || code === 'app_registered_template'
+          ? i18nT('pages.overview.agentTemplatesTab.default_template_refused')
+          : i18nT('pages.overview.agentTemplatesTab.default_template_failed'),
+      )
+    },
+  })
+  // Reported IN the bar, beside the control that was used: the page's shared
+  // notice renders inside the detail pane, which may hold no template yet.
+  const [defaultTemplateError, setDefaultTemplateError] = useState('')
+  const defaultTemplateOptions = useMemo(() => rows.filter(r => r.default_eligible).map(r => r.name), [rows])
+  // What actually starts, not the stored string: unset is "" on the wire and
+  // the runtime's own template in practice, and the picker shows the latter.
+  const effectiveDefaultTemplate = defaultTemplate.data?.effective ?? ''
+
   const chatWith = async (row: TemplateRow) => {
     // Leaving for the chat unmounts the editor: the same dirty confirm a row
     // switch uses, instead of a disabled button whose reason hides in a title.
@@ -510,6 +551,7 @@ export default function AgentTemplatesTab() {
     const isSel = r.name === selectedName
     const crews = r.used_by.filter(u => u.kind === 'crew').length
     const copies = r.used_by.filter(u => u.kind === 'private_copy').length
+    const isDefault = r.used_by.some(u => u.kind === 'default')
     return (
       <div
         key={r.filename}
@@ -522,6 +564,9 @@ export default function AgentTemplatesTab() {
       >
         <div className="flex items-center gap-1.5 min-w-0">
           <span className={`text-[13px] font-semibold font-mono truncate flex-1 ${isSel ? 'text-accent' : 'text-text'}`}>{r.name}</span>
+          {/* The bar above is the control; this echoes its star on the row it
+              names, so the list says which one is the default without a hunt. */}
+          {isDefault && <Badge variant="ok" className="shrink-0"><Star className="lucide-inline" aria-hidden="true" /> {i18nT('pages.overview.agentTemplatesTab.row_default_badge')}</Badge>}
           {r.read_only && <span className="inline-flex shrink-0" title={readOnlyHint(r.read_only)}><Lock className="lucide-inline text-muted" aria-label={readOnlyHint(r.read_only)} /></span>}
         </div>
         {/* An override row is described in this tab's own word, not the
@@ -625,6 +670,30 @@ export default function AgentTemplatesTab() {
           to search; the empty state below carries its own New button. A failed
           load renders no empty state, so the toolbar stays for it too --
           otherwise New custom agent would exist nowhere on the tab. */}
+      {/* Option A of #18411: one bar above the list is both the readout and
+          the control. A per-row star was rejected once already -- the same
+          glyph then has to mean "this is the default" and "make this the
+          default". The rows keep their "Default template" marker in `used_by`. */}
+      {rows.length > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-2.5 rounded-lg border border-border bg-bg-accent px-3 py-2.5" data-testid="default-template-bar">
+          <Star className="lucide-inline text-accent" aria-hidden="true" />
+          <span className="text-[13px]">{i18nT('pages.overview.agentTemplatesTab.default_template_label')}</span>
+          <SimpleSelect
+            options={defaultTemplateOptions}
+            value={effectiveDefaultTemplate}
+            /* A stored name that is no longer installed (or no longer eligible)
+               would otherwise render as the first option -- a stale config
+               reading as a choice. Show the name it actually holds. */
+            triggerFallback={effectiveDefaultTemplate && !defaultTemplateOptions.includes(effectiveDefaultTemplate) ? effectiveDefaultTemplate : undefined}
+            disabled={defaultTemplate.isPending || setDefaultTemplate.isPending}
+            onChange={next => setDefaultTemplate.mutate(next)}
+            aria-label={i18nT('pages.overview.agentTemplatesTab.default_template_label')}
+            style={{ width: 220 }}
+          />
+          <span className="w-full text-[12px] text-muted">{i18nT('pages.overview.agentTemplatesTab.default_template_hint')}</span>
+          <ErrorNotice message={defaultTemplateError} variant="inline" testId="default-template-error" />
+        </div>
+      )}
       {(rows.length > 0 || error) && (
         // Narrow-first: below `sm` the search and the primary action stack (a
         // 288px pane cannot hold both on one row without clipping one); from

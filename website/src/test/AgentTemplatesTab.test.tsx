@@ -25,6 +25,8 @@ const mockApi = vi.hoisted(() => ({
   agentTemplateDelete: vi.fn(),
   createKirocrewAgent: vi.fn(),
   kirocrewAgents: vi.fn(),
+  defaultTemplate: vi.fn(),
+  setDefaultTemplate: vi.fn(),
   skillsCatalog: vi.fn(),
   skills: vi.fn(),
 }))
@@ -77,14 +79,14 @@ import type { TemplateRow } from '../pages/overview/AgentTemplatesTab'
 const row = (over: Partial<TemplateRow>): TemplateRow => ({
   name: 'x', filename: 'x.json', description: '', model: '', skills: [], mcp_servers: [],
   source: 'builtin', package: '', scope: 'global', kirocrew_owned: false, forked_from: '', private_to: '',
-  read_only: null, used_by: [], ...over,
+  read_only: null, default_eligible: true, used_by: [], ...over,
 })
 const MINE = row({ name: 'reviewer', filename: 'reviewer.json', description: 'Careful reviewer', model: 'claude-x', used_by: [{ kind: 'crew', id: 'pr-bot', label: 'pr-bot' }, { kind: 'private_copy', id: 'pr-bot', label: 'pr-bot' }] })
 // The same template with nothing pointing at it: the row a delete can go through for.
 const FREE = { ...MINE, used_by: [] }
 const PKG = row({ name: 'atlas', filename: 'Pkg-atlas.json', source: 'package', package: 'Pkg', read_only: 'package' })
 const RUNTIME = row({ name: 'kirocrew-worker', filename: 'kirocrew-worker.json', kirocrew_owned: true, read_only: 'runtime' })
-const COPY = row({ name: 'pr-bot', filename: 'pr-bot.json', forked_from: 'reviewer', private_to: 'pr-bot', read_only: 'private_copy' })
+const COPY = row({ name: 'pr-bot', filename: 'pr-bot.json', forked_from: 'reviewer', private_to: 'pr-bot', read_only: 'private_copy', default_eligible: false })
 
 function renderTab() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -118,6 +120,8 @@ beforeEach(() => {
   mockApi.agentTemplateDelete.mockResolvedValue({ ok: true })
   mockApi.createKirocrewAgent.mockResolvedValue({ ok: true })
   mockApi.kirocrewAgents.mockResolvedValue({ agents: [], default_agent: 'kirocrew' })
+  mockApi.defaultTemplate.mockResolvedValue({ default_template: '', effective: 'kirocrew' })
+  mockApi.setDefaultTemplate.mockResolvedValue({ ok: true, default_template: 'reviewer', effective: 'reviewer' })
   mockDispatch.mockImplementation(() => ({ unwrap: () => Promise.resolve({ key: 'chat-1' }) }))
 })
 
@@ -722,5 +726,53 @@ describe('AgentTemplatesTab — enrolling reaches the crew registry', () => {
     await waitFor(() => expect(mockApi.createKirocrewAgent).toHaveBeenCalled())
 
     await waitFor(() => expect(screen.getByTestId('crews-roster')).toHaveTextContent('reviewer'))
+  })
+})
+
+describe('AgentTemplatesTab — the default custom agent bar (#18411)', () => {
+  const BAR_LABEL = 'Custom agent for new chats that don’t pick one'
+  const trigger = () => within(screen.getByTestId('default-template-bar')).getByRole('combobox', { name: BAR_LABEL })
+
+  it('shows what actually starts, not the stored empty string', async () => {
+    renderTab()
+    await waitFor(() => expect(mockApi.defaultTemplate).toHaveBeenCalled())
+    // Unset on the wire is the runtime's own template in practice.
+    await waitFor(() => expect(trigger()).toHaveTextContent('kirocrew'))
+  })
+
+  it('offers only rows the server would accept, and writes the pick', async () => {
+    renderTab()
+    await waitFor(() => expect(trigger()).toHaveTextContent('kirocrew'))
+    fireEvent.click(trigger())
+    // The open Radix list is the one listbox that is not the roster.
+    const list = await waitFor(() => screen.getAllByRole('listbox').find(l => l.getAttribute('aria-label') !== 'Custom agents')!)
+    const names = within(list).getAllByRole('option').map(o => o.textContent)
+    // A private copy is never offered; a package template is (editability is a
+    // different question from reachability).
+    expect(names).toContain('reviewer')
+    expect(names).toContain('atlas')
+    expect(names).not.toContain('pr-bot')
+    fireEvent.click(within(list).getByRole('option', { name: 'reviewer' }))
+    await waitFor(() => expect(mockApi.setDefaultTemplate).toHaveBeenCalledWith('reviewer'))
+    // The roster carries the "Default custom agent" marker, so it is re-read.
+    await waitFor(() => expect(mockApi.agentTemplates.mock.calls.length).toBeGreaterThan(1))
+  })
+
+  it('reports a refusal in the bar, in plain words', async () => {
+    mockApi.setDefaultTemplate.mockRejectedValue(new StubApiError(409, 'refused', { code: 'template_private_copy' }))
+    renderTab()
+    await waitFor(() => expect(trigger()).toHaveTextContent('kirocrew'))
+    fireEvent.click(trigger())
+    // The open Radix list is the one listbox that is not the roster.
+    const list = await waitFor(() => screen.getAllByRole('listbox').find(l => l.getAttribute('aria-label') !== 'Custom agents')!)
+    fireEvent.click(within(list).getByRole('option', { name: 'reviewer' }))
+    const err = await screen.findByTestId('default-template-error')
+    expect(err).toHaveTextContent(/can’t be the default/)
+  })
+
+  it('shows a stored name that is no longer offered rather than the first option', async () => {
+    mockApi.defaultTemplate.mockResolvedValue({ default_template: 'gone', effective: 'gone' })
+    renderTab()
+    await waitFor(() => expect(trigger()).toHaveTextContent('gone'))
   })
 })

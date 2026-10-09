@@ -6424,7 +6424,7 @@
         "cannot_delete_body_one": "{{count}} thing still points at this custom agent. Rebind or remove it first — deleting underneath it would leave sessions that cannot start.",
         "cannot_delete_body_other": "{{count}} things still point at this custom agent. Rebind or remove them first — deleting underneath them would leave sessions that cannot start.",
         "ref_crewmate": "Crewmate",
-        "ref_default": "Default agent",
+        "ref_default": "Default custom agent",
         "ref_schedule": "Schedule",
         "ref_folder": "Chat folder",
         "ref_webhook": "Webhook",
@@ -6435,7 +6435,7 @@
         "close": "Close",
         "runs_as_no_crewmate": "Not enrolled as a crewmate",
         "override_line": "Crewmate {{crew}}’s own copy of {{template}}",
-        "is_default_agent": "Default agent",
+        "is_default_agent": "Default custom agent",
         "schedules_count_one": "{{count}} schedule",
         "schedules_count_other": "{{count}} schedules",
         "webhooks_count_one": "{{count}} webhook",
@@ -6495,7 +6495,12 @@
         "err_name_taken": "That name is already taken by a custom agent or a crewmate.",
         "err_name_reserved": "“{{name}}” is reserved for a built-in agent. Pick another name.",
         "err_generic": "The request failed. Try again.",
-        "chat_with_caption": "Chat runs on the shared default memory — not a crewmate's own."
+        "chat_with_caption": "Chat runs on the shared default memory — not a crewmate's own.",
+        "default_template_label": "Custom agent for new chats that don’t pick one",
+        "default_template_hint": "Used by new chats here, chats from the terminal, Slack- and Discord-style messaging chats, and scheduled jobs that don’t name an agent. Crewmates (your named agents) keep their own. Chats already running are not affected.",
+        "default_template_refused": "This custom agent can’t be the default: it’s a crewmate’s private copy, is only for scheduled jobs, or was installed by an app. Your previous default is still in place.",
+        "default_template_failed": "Could not change the default custom agent. Your previous default is still in place.",
+        "row_default_badge": "Default"
       }
     },
     "overviewPage": {

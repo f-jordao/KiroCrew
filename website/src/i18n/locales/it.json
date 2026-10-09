@@ -14331,7 +14331,7 @@
         "cannot_delete_body_many": "{{count}} elementi puntano ancora a questo agente personalizzato. Ricollegali o rimuovili prima: eliminarlo lascerebbe sessioni che non possono avviarsi.",
         "cannot_delete_body_other": "{{count}} elementi puntano ancora a questo agente personalizzato. Ricollegali o rimuovili prima: eliminarlo lascerebbe sessioni che non possono avviarsi.",
         "ref_crewmate": "Compagno",
-        "ref_default": "Agente predefinito",
+        "ref_default": "Agente personalizzato predefinito",
         "ref_schedule": "Pianificazione",
         "ref_folder": "Cartella chat",
         "ref_webhook": "Webhook",
@@ -14342,7 +14342,7 @@
         "close": "Chiudi",
         "runs_as_no_crewmate": "Non registrato come compagno",
         "override_line": "Copia propria di {{template}} per il compagno {{crew}}",
-        "is_default_agent": "Agente predefinito",
+        "is_default_agent": "Agente personalizzato predefinito",
         "schedules_count_one": "{{count}} pianificazione",
         "schedules_count_many": "{{count}} pianificazioni",
         "schedules_count_other": "{{count}} pianificazioni",
@@ -14409,7 +14409,12 @@
         "err_name_taken": "Quel nome è già usato da un agente personalizzato o da un compagno.",
         "err_name_reserved": "“{{name}}” è riservato a un agente integrato. Scegli un altro nome.",
         "err_generic": "La richiesta non è riuscita. Riprova.",
-        "chat_with_caption": "La chat usa la memoria predefinita condivisa, non quella di un compagno."
+        "chat_with_caption": "La chat usa la memoria predefinita condivisa, non quella di un compagno.",
+        "default_template_label": "Agente personalizzato per le nuove chat che non ne scelgono uno",
+        "default_template_hint": "Usato dalle nuove chat qui, dalle chat dal terminale, dalle chat di messaggistica come Slack e Discord e dalle attività pianificate senza agente. I compagni (i tuoi agenti con nome) mantengono il proprio. Le chat in corso non cambiano.",
+        "default_template_refused": "Questo agente personalizzato non può essere il predefinito: è la copia privata di un compagno, serve solo per attività pianificate o è stato installato da un’app. Il predefinito precedente resta attivo.",
+        "default_template_failed": "Impossibile cambiare l’agente personalizzato predefinito. Il precedente resta attivo.",
+        "row_default_badge": "Predefinito"
       }
     },
     "overviewPage": {

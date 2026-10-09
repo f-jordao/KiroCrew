@@ -13903,7 +13903,7 @@
         "cannot_delete_title": "{{name}} はまだ削除できません",
         "cannot_delete_body_other": "{{count}} 件がまだこのカスタムエージェントを参照しています。先に再バインドまたは削除してください — そのまま削除すると起動できないセッションが残ります。",
         "ref_crewmate": "クルーメイト",
-        "ref_default": "デフォルトエージェント",
+        "ref_default": "デフォルトのカスタムエージェント",
         "ref_schedule": "スケジュール",
         "ref_folder": "チャットフォルダー",
         "ref_webhook": "Webhook",
@@ -13914,7 +13914,7 @@
         "close": "閉じる",
         "runs_as_no_crewmate": "クルーメイトとして未登録",
         "override_line": "クルーメイト {{crew}} 用の {{template}} の独自コピー",
-        "is_default_agent": "デフォルトエージェント",
+        "is_default_agent": "デフォルトのカスタムエージェント",
         "schedules_count_other": "{{count}} 件のスケジュール",
         "webhooks_count_other": "{{count}} 個の Webhook",
         "folders_count_other": "{{count}} 個のチャットフォルダー",
@@ -13967,7 +13967,12 @@
         "err_name_taken": "その名前はすでにカスタムエージェントまたはクルーメイトに使われています。",
         "err_name_reserved": "「{{name}}」は組み込みエージェント用に予約されています。別の名前を選んでください。",
         "err_generic": "リクエストに失敗しました。もう一度お試しください。",
-        "chat_with_caption": "チャットは共有のデフォルトメモリで動きます。クルーメイト固有のメモリではありません。"
+        "chat_with_caption": "チャットは共有のデフォルトメモリで動きます。クルーメイト固有のメモリではありません。",
+        "default_template_label": "指定のない新しいチャットで使うカスタムエージェント",
+        "default_template_hint": "ここでの新しいチャット、ターミナルからのチャット、Slack や Discord などのメッセージアプリのチャット、エージェント未指定のスケジュール済みジョブで使われます。クルーメイト（名前付きのエージェント）は自分のものを使います。進行中のチャットは変わりません。",
+        "default_template_refused": "このカスタムエージェントはデフォルトにできません。クルーメイトの個人用コピー、スケジュール済みジョブ専用、またはアプリによるインストールです。以前のデフォルトはそのままです。",
+        "default_template_failed": "デフォルトのカスタムエージェントを変更できませんでした。以前のデフォルトはそのままです。",
+        "row_default_badge": "デフォルト"
       }
     },
     "overviewPage": {

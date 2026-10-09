@@ -13903,7 +13903,7 @@
         "cannot_delete_title": "暂时无法删除 {{name}}",
         "cannot_delete_body_other": "仍有 {{count}} 项指向此自定义代理。请先重新绑定或移除它们 — 直接删除会留下无法启动的会话。",
         "ref_crewmate": "队友",
-        "ref_default": "默认 agent",
+        "ref_default": "默认自定义代理",
         "ref_schedule": "定时任务",
         "ref_folder": "聊天文件夹",
         "ref_webhook": "Webhook",
@@ -13914,7 +13914,7 @@
         "close": "关闭",
         "runs_as_no_crewmate": "未登记为队友",
         "override_line": "队友 {{crew}} 的 {{template}} 独立副本",
-        "is_default_agent": "默认 agent",
+        "is_default_agent": "默认自定义代理",
         "schedules_count_other": "{{count}} 个定时任务",
         "webhooks_count_other": "{{count}} 个 webhook",
         "folders_count_other": "{{count}} 个聊天文件夹",
@@ -13967,7 +13967,12 @@
         "err_name_taken": "该名称已被某个自定义代理或队友占用。",
         "err_name_reserved": "“{{name}}”是内置智能体的保留名称。请换一个名字。",
         "err_generic": "请求失败，请重试。",
-        "chat_with_caption": "聊天使用共享的默认记忆，而不是某个队友自己的记忆。"
+        "chat_with_caption": "聊天使用共享的默认记忆，而不是某个队友自己的记忆。",
+        "default_template_label": "新聊天未指定时使用的自定义代理",
+        "default_template_hint": "这里的新聊天、终端里的聊天、Slack、Discord 等消息应用里的聊天，以及未指定代理的定时任务都用它。队友（你命名的代理）保留自己的。已在进行的聊天不受影响。",
+        "default_template_refused": "这个自定义代理不能设为默认：它是某个队友的私有副本、只用于定时任务，或由某个应用安装。原来的默认仍然有效。",
+        "default_template_failed": "无法更改默认自定义代理。原来的默认仍然有效。",
+        "row_default_badge": "默认"
       }
     },
     "overviewPage": {

@@ -14331,7 +14331,7 @@
         "cannot_delete_body_many": "{{count}} éléments pointent encore vers cet agent personnalisé. Réassocie-les ou retire-les d’abord : le supprimer laisserait des sessions incapables de démarrer.",
         "cannot_delete_body_other": "{{count}} éléments pointent encore vers cet agent personnalisé. Réassocie-les ou retire-les d’abord : le supprimer laisserait des sessions incapables de démarrer.",
         "ref_crewmate": "Coéquipier",
-        "ref_default": "Agent par défaut",
+        "ref_default": "Agent personnalisé par défaut",
         "ref_schedule": "Planification",
         "ref_folder": "Dossier de discussion",
         "ref_webhook": "Webhook",
@@ -14342,7 +14342,7 @@
         "close": "Fermer",
         "runs_as_no_crewmate": "Non inscrit comme coéquipier",
         "override_line": "Copie propre de {{template}} pour le coéquipier {{crew}}",
-        "is_default_agent": "Agent par défaut",
+        "is_default_agent": "Agent personnalisé par défaut",
         "schedules_count_one": "{{count}} planification",
         "schedules_count_many": "{{count}} planifications",
         "schedules_count_other": "{{count}} planifications",
@@ -14409,7 +14409,12 @@
         "err_name_taken": "Ce nom est déjà pris par un agent personnalisé ou un coéquipier.",
         "err_name_reserved": "« {{name}} » est réservé à un agent intégré. Choisis un autre nom.",
         "err_generic": "La requête a échoué. Réessaie.",
-        "chat_with_caption": "La discussion utilise la mémoire partagée par défaut, pas celle d’un coéquipier."
+        "chat_with_caption": "La discussion utilise la mémoire partagée par défaut, pas celle d’un coéquipier.",
+        "default_template_label": "Agent personnalisé pour les nouveaux chats qui n’en choisissent pas",
+        "default_template_hint": "Utilisé par les nouveaux chats ici, les chats depuis le terminal, les chats de messagerie type Slack et Discord, et les tâches planifiées sans agent. Les coéquipiers (vos agents nommés) gardent le leur. Les chats en cours ne changent pas.",
+        "default_template_refused": "Cet agent personnalisé ne peut pas être celui par défaut : c’est la copie privée d’un coéquipier, il ne sert qu’aux tâches planifiées, ou il a été installé par une app. L’ancien agent par défaut reste en place.",
+        "default_template_failed": "Impossible de changer l’agent personnalisé par défaut. L’ancien reste en place.",
+        "row_default_badge": "Par défaut"
       }
     },
     "overviewPage": {

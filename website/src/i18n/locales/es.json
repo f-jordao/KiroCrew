@@ -14331,7 +14331,7 @@
         "cannot_delete_body_many": "{{count}} elementos todavía apuntan a este agente personalizado. Vuelve a vincularlos o quítalos primero: eliminarlo dejaría sesiones que no pueden iniciarse.",
         "cannot_delete_body_other": "{{count}} elementos todavía apuntan a este agente personalizado. Vuelve a vincularlos o quítalos primero: eliminarlo dejaría sesiones que no pueden iniciarse.",
         "ref_crewmate": "Compañero",
-        "ref_default": "Agente predeterminado",
+        "ref_default": "Agente personalizado predeterminado",
         "ref_schedule": "Programación",
         "ref_folder": "Carpeta de chat",
         "ref_webhook": "Webhook",
@@ -14342,7 +14342,7 @@
         "close": "Cerrar",
         "runs_as_no_crewmate": "No inscrita como compañero",
         "override_line": "Copia propia de {{template}} para el compañero {{crew}}",
-        "is_default_agent": "Agente predeterminado",
+        "is_default_agent": "Agente personalizado predeterminado",
         "schedules_count_one": "{{count}} programación",
         "schedules_count_many": "{{count}} programaciones",
         "schedules_count_other": "{{count}} programaciones",
@@ -14409,7 +14409,12 @@
         "err_name_taken": "Ese nombre ya lo usa un agente personalizado o un compañero.",
         "err_name_reserved": "“{{name}}” está reservado para un agente integrado. Elige otro nombre.",
         "err_generic": "La solicitud falló. Inténtalo de nuevo.",
-        "chat_with_caption": "El chat usa la memoria predeterminada compartida, no la propia de un compañero."
+        "chat_with_caption": "El chat usa la memoria predeterminada compartida, no la propia de un compañero.",
+        "default_template_label": "Agente personalizado para chats nuevos que no eligen uno",
+        "default_template_hint": "Lo usan los chats nuevos aquí, los chats desde la terminal, los chats de mensajería como Slack y Discord, y las tareas programadas sin agente. Los compañeros (tus agentes con nombre) conservan el suyo. Los chats en curso no cambian.",
+        "default_template_refused": "Este agente personalizado no puede ser el predeterminado: es la copia privada de un compañero, es solo para tareas programadas o lo instaló una app. El predeterminado anterior sigue vigente.",
+        "default_template_failed": "No se pudo cambiar el agente personalizado predeterminado. El anterior sigue vigente.",
+        "row_default_badge": "Predeterminado"
       }
     },
     "overviewPage": {

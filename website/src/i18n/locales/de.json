@@ -14117,7 +14117,7 @@
         "cannot_delete_body_one": "{{count}} Eintrag verweist noch auf diesen benutzerdefinierten Agenten. Binde ihn zuerst um oder entferne ihn – sonst bleiben Sitzungen zurück, die nicht starten können.",
         "cannot_delete_body_other": "{{count}} Einträge verweisen noch auf diesen benutzerdefinierten Agenten. Binde sie zuerst um oder entferne sie – sonst bleiben Sitzungen zurück, die nicht starten können.",
         "ref_crewmate": "Crew-Kamerad",
-        "ref_default": "Standard-Agent",
+        "ref_default": "Benutzerdefinierter Standard-Agent",
         "ref_schedule": "Zeitplan",
         "ref_folder": "Chat-Ordner",
         "ref_webhook": "Webhook",
@@ -14128,7 +14128,7 @@
         "close": "Schließen",
         "runs_as_no_crewmate": "Nicht als Crew-Kamerad eingetragen",
         "override_line": "Eigene Kopie von {{template}} für Crew-Kamerad {{crew}}",
-        "is_default_agent": "Standard-Agent",
+        "is_default_agent": "Benutzerdefinierter Standard-Agent",
         "schedules_count_one": "{{count}} Zeitplan",
         "schedules_count_other": "{{count}} Zeitpläne",
         "webhooks_count_one": "{{count}} Webhook",
@@ -14188,7 +14188,12 @@
         "err_name_taken": "Dieser Name ist bereits durch einen benutzerdefinierten Agenten oder einen Crew-Kameraden belegt.",
         "err_name_reserved": "„{{name}}“ ist für einen integrierten Agenten reserviert. Wähle einen anderen Namen.",
         "err_generic": "Die Anfrage ist fehlgeschlagen. Bitte erneut versuchen.",
-        "chat_with_caption": "Der Chat läuft mit dem geteilten Standard-Gedächtnis – nicht mit dem eines Crew-Kameraden."
+        "chat_with_caption": "Der Chat läuft mit dem geteilten Standard-Gedächtnis – nicht mit dem eines Crew-Kameraden.",
+        "default_template_label": "Benutzerdefinierter Agent für neue Chats, die keinen wählen",
+        "default_template_hint": "Gilt für neue Chats hier, Chats aus dem Terminal, Messaging-Chats wie Slack und Discord sowie geplante Aufgaben ohne Agenten. Crew-Kameraden (deine benannten Agenten) behalten ihren eigenen. Laufende Chats sind nicht betroffen.",
+        "default_template_refused": "Dieser benutzerdefinierte Agent kann nicht Standard sein: Er ist die private Kopie eines Crew-Kameraden, nur für geplante Aufgaben gedacht oder wurde von einer App installiert. Der bisherige Standard gilt weiter.",
+        "default_template_failed": "Der benutzerdefinierte Standard-Agent konnte nicht geändert werden. Der bisherige Standard gilt weiter.",
+        "row_default_badge": "Standard"
       }
     },
     "overviewPage": {

@@ -14331,7 +14331,7 @@
         "cannot_delete_body_many": "{{count}} itens ainda apontam para este agente personalizado. Revincule-os ou remova-os primeiro: excluí-lo deixaria sessões que não conseguem iniciar.",
         "cannot_delete_body_other": "{{count}} itens ainda apontam para este agente personalizado. Revincule-os ou remova-os primeiro: excluí-lo deixaria sessões que não conseguem iniciar.",
         "ref_crewmate": "Colega",
-        "ref_default": "Agente padrão",
+        "ref_default": "Agente personalizado padrão",
         "ref_schedule": "Agendamento",
         "ref_folder": "Pasta de chat",
         "ref_webhook": "Webhook",
@@ -14342,7 +14342,7 @@
         "close": "Fechar",
         "runs_as_no_crewmate": "Não inscrito como colega",
         "override_line": "Cópia própria de {{template}} para o companheiro {{crew}}",
-        "is_default_agent": "Agente padrão",
+        "is_default_agent": "Agente personalizado padrão",
         "schedules_count_one": "{{count}} agendamento",
         "schedules_count_many": "{{count}} agendamentos",
         "schedules_count_other": "{{count}} agendamentos",
@@ -14409,7 +14409,12 @@
         "err_name_taken": "Esse nome já é usado por um agente personalizado ou por um colega.",
         "err_name_reserved": "“{{name}}” está reservado para um agente integrado. Escolha outro nome.",
         "err_generic": "A solicitação falhou. Tente novamente.",
-        "chat_with_caption": "O chat usa a memória padrão compartilhada, não a de um colega."
+        "chat_with_caption": "O chat usa a memória padrão compartilhada, não a de um colega.",
+        "default_template_label": "Agente personalizado para novos chats que não escolhem um",
+        "default_template_hint": "Usado por novos chats aqui, chats no terminal, chats de mensagens como Slack e Discord e tarefas agendadas sem agente. Os colegas (seus agentes nomeados) mantêm o seu. Chats em andamento não mudam.",
+        "default_template_refused": "Este agente personalizado não pode ser o padrão: é a cópia privada de um colega, serve só para tarefas agendadas ou foi instalado por um app. O padrão anterior continua valendo.",
+        "default_template_failed": "Não foi possível alterar o agente personalizado padrão. O anterior continua valendo.",
+        "row_default_badge": "Padrão"
       }
     },
     "overviewPage": {
