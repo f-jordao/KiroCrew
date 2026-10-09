@@ -525,6 +525,15 @@ _CREW_HIDDEN_LEAVES: tuple[str, ...] = (
 _CREW_UNREADABLE_MASK_LEAVES: frozenset[str] = frozenset({"token_signing.key"})
 assert _CREW_UNREADABLE_MASK_LEAVES <= set(_CREW_HIDDEN_LEAVES)
 
+#: Crew-home leaves masked at a RELOCATED data home on top of ``_CREW_HIDDEN_LEAVES``:
+#: the secret vault. The tier lists name the vault only at its two ``$HOME``-joined
+#: spellings, so a ``KIROCREW_HOME`` outside ``$HOME`` needs it re-anchored here the
+#: way ``kas`` is. Kept out of ``_CREW_HIDDEN_LEAVES`` on purpose: that list also
+#: drives the alias walk and the planted-link spawn refusal, and the vault's mask at
+#: the default home goes through neither. Joined at each call site, not here, so a
+#: patched ``_CREW_HIDDEN_LEAVES`` still reaches the plan.
+_RELOCATED_CREW_HIDDEN_LEAVES: tuple[str, ...] = (".vault",)
+
 #: Crew-home ceilings and gateway-managed data: readable by sandboxed code,
 #: never writable by it. See the READONLY note above for why hiding a ceiling
 #: inverts its effect; named memory stores need write integrity, not secrecy.
@@ -1337,7 +1346,7 @@ def carveout_shadowed_by_foreign_mask(path: str, mode: str = "standard") -> bool
     ancestors.extend(
         os.path.abspath(entry)
         for entry in (
-            *_relocated_crew_targets(_CREW_HIDDEN_LEAVES),
+            *_relocated_crew_targets((*_CREW_HIDDEN_LEAVES, *_RELOCATED_CREW_HIDDEN_LEAVES)),
             *_relocated_policy_cache_dirs(),
         )
     )
@@ -7495,7 +7504,9 @@ def _live_plan_host(request: sandbox_plan.SandboxRequest) -> sandbox_plan.PlanHo
         tier_dirs = tuple(_sandbox_policy().cc_dirs())
     else:
         tier_dirs = tuple(_sandbox_policy().strict_dirs())
-    relocated_crew_hidden = tuple(_relocated_crew_targets(_CREW_HIDDEN_LEAVES))
+    relocated_crew_hidden = tuple(
+        _relocated_crew_targets((*_CREW_HIDDEN_LEAVES, *_RELOCATED_CREW_HIDDEN_LEAVES))
+    )
     # The pod's remapped home, gated on ``KIROCREW_POD == "1"`` exactly as
     # ``config.paths`` gates the resolver, so a non-pod session's mask is unchanged.
     pod_os_home = (
