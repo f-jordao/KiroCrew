@@ -1,5 +1,9 @@
+// The look-preview frame's storage fence (utils/lookPreviewBoot.ts). Must stay
+// the very first import: ES modules evaluate in import order, and this has to
+// run before any module -- the extension root included -- touches localStorage.
+import './utils/lookPreviewBoot'
 // Extension composition root — the one file a downstream edition owns. Imported
-// FIRST (before store/providers/App) so seam registrations run before render.
+// before store/providers/App so seam registrations run before render.
 // Empty in the stock build. See website/src/extensions.ts.
 import './extensions'
 import { startMemoryWatch } from './lib/memoryWatch'
