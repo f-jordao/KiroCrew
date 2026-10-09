@@ -839,6 +839,13 @@
       "description": "Immediate mode shows raw chunks as they arrive. Smooth mode buffers and fades text in at a steady pace."
     },
     {
+      "id": "chat.topic-tags",
+      "label": "Topic tags",
+      "tab": "chat",
+      "route": "/settings/chat/sessions?highlight=chat.topic-tags",
+      "description": "Tags each new session in the sidebar with up to two topics, like \"debugging\". Uses one background-model call per new session."
+    },
+    {
       "id": "chat.what-enter-does-while-the-agent-is-working",
       "label": "What Enter does while the agent is working",
       "tab": "chat",
