@@ -5714,9 +5714,9 @@ async def _eager_spawn(
             _bound = _slot_binding(slot)
             kiro_agent: str | None = None
             # Canonical crew identity for watchdog overrides. Seeded from the
-            # slot, replaced by the resolver's alias below: an EMPTY slot runs
-            # the DEFAULT crew (resolve_agent_bindings step 2), whose overrides
-            # would be discarded by passing "" here.
+            # slot, replaced by the resolver's alias below. An EMPTY slot runs
+            # the default TEMPLATE (resolve_agent_bindings step 2), which is
+            # nobody's crew, so "" is its honest alias.
             crew_alias = slot.agent or ""
             agent_model = ""
             # Same default-model resolve as the real turn — the two MUST agree,

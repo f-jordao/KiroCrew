@@ -1281,7 +1281,9 @@ async def test_non_owner_switch_keeps_durable_selection(tmp_path, monkeypatch, s
     state.sessions.get_or_create.assert_awaited_once()
     restored = _turn_state(tmp_path, monkeypatch)
     restored_slot = _rehydrate_slot_from_history(restored, slot.key)
-    assert restored_slot is not None and restored_slot.agent == (later_agent or default_agent)
+    # An empty switch is the default TEMPLATE, stamped like an agent-less
+    # create -- never the default crewmate alias.
+    assert restored_slot is not None and restored_slot.agent == (later_agent or "kirocrew")
     await asyncio.wait_for(chat_runner._run_chat(restored, restored_slot, "Continue."), 10)
     await asyncio.wait_for(drain_background_tasks(restored), 10)
     restored.sessions.record_failure.assert_not_awaited()

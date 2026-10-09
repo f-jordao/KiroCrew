@@ -657,9 +657,9 @@ export default function ChatPane({
   const navigate = useNavigate()
   const [defaultAgentFailed, setDefaultAgentFailed] = useState(false)
   // Same contract as ChatPage: set-only, clearing lives on the Templates page.
-  const toggleDefaultAgent = useCallback((name: string) => {
+  const toggleDefaultAgent = useCallback((name: string, kind?: 'member' | 'template') => {
     setDefaultAgentFailed(false)
-    Promise.resolve(api.setDefaultAgent?.(name))
+    Promise.resolve(api.setDefaultAgent?.(name, kind))
       .then(() => dispatch(triggerRefresh()))
       .catch(() => setDefaultAgentFailed(true))
   }, [dispatch])
@@ -2192,7 +2192,8 @@ export default function ChatPane({
             <div role="listbox" aria-label={i18nT('components.chatPane.agent_list')} className="overflow-y-auto max-h-[280px]">
               <AgentDropdownList agents={agentDD.filtered} activeAgent={paneAgentName} activeKind={paneSlot?.agent_kind} defaultAgent={defaultAgent} onSelect={(name, kind) => { switchAgent(name, kind); agentDD.setOpen(false) }} />
             </div>
-            <DefaultAgentRow agentName={paneAgentName} isDefault={paneAgentName === defaultAgent} onSetDefault={() => toggleDefaultAgent(paneAgentName)} />
+            {/* The default for new sessions is a template; a crewmate's chat offers no such write. */}
+            {paneSlot?.agent_kind !== 'member' && <DefaultAgentRow agentName={paneAgentName} isDefault={paneAgentName === defaultAgent} onSetDefault={() => toggleDefaultAgent(paneAgentName, 'template')} />}
             <ManageAgentsFooter error={defaultAgentFailed} onManage={() => { agentDD.setOpen(false); navigate('/capabilities?tab=crews') }} />
           </div>,
           document.body,

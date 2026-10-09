@@ -1737,7 +1737,6 @@ export default function ChatPage({ mode, embedded, embedMode, popout, noUrlSync 
     activeSlot,
     activeSlotRef,
     connected,
-    defaultAgent,
     dispatch,
     drafts,
     embedMode,
@@ -2127,7 +2126,10 @@ export default function ChatPage({ mode, embedded, embedMode, popout, noUrlSync 
       // paste blocks and attachments, surface the failure, and bail.
       let created: { key: string } | null = null
       try {
-        created = await dispatch(createSlot({ agent: pendingAgentRef.current || defaultAgent || undefined, agent_kind: pendingAgentRef.current ? pendingAgentKindRef.current : undefined, model: pendingModelRef.current || undefined, mode: modeRef.current })).unwrap()
+        // No agent when none is pending: the server stamps the default custom
+        // agent (a template) on an agent-less create. Passing `defaultAgent`
+        // here would pick the default CREWMATE alias instead.
+        created = await dispatch(createSlot({ agent: pendingAgentRef.current || undefined, agent_kind: pendingAgentRef.current ? pendingAgentKindRef.current : undefined, model: pendingModelRef.current || undefined, mode: modeRef.current })).unwrap()
       } catch (e: unknown) {
         sendingRef.current = false
         if (isolated) {
@@ -5164,8 +5166,9 @@ export default function ChatPage({ mode, embedded, embedMode, popout, noUrlSync 
     // `focusComposerAfter`, not a bare dispatch + rAF: there is one composer and
     // it is bound to the ACTIVE slot, so focusing before creation fulfils puts
     // the caret on the old session and loses whatever is typed. See the module.
-    focusComposerAfter(dispatch(createSlot({ agent: defaultAgent || undefined, mode: mode || '' })).unwrap())
-  }, [dispatch, defaultAgent, mode, flyout])
+    // Agent-less: the server stamps the default custom agent (a template).
+    focusComposerAfter(dispatch(createSlot({ mode: mode || '' })).unwrap())
+  }, [dispatch, mode, flyout])
 
   // Force the list open when there is nothing in it, so a user with no sessions
   // still has the surface that creates one. Skipped while expand mode owns the
@@ -5260,9 +5263,9 @@ export default function ChatPage({ mode, embedded, embedMode, popout, noUrlSync 
       showActionError(errMessage(error) || i18nT('pages.chatPage.unknown_error'), title)
     if (mobileNewFolderId && !chatFoldersLoaded) return fail(chatFoldersError)
     const folderId = mobileNewFolder ? mobileNewFolderId : ''
-    const agent = folderId
-      ? resolveFolderAgent(chatFolders, folderId, defaultAgent)
-      : (defaultAgent || undefined)
+    // Only a folder's own pin names an agent; otherwise the server stamps the
+    // default custom agent (a template), never the default crewmate alias.
+    const agent = folderId ? resolveFolderAgent(chatFolders, folderId, '') : undefined
     const project = folderId ? resolveFolderProjectDir(chatFolders, folderId) : undefined
     mobileNewSessionInFlightRef.current = true
     setMobileNewSessionBusy(true)
@@ -5310,7 +5313,8 @@ export default function ChatPage({ mode, embedded, embedMode, popout, noUrlSync 
     // the recreated slot keeps its identity and placement.
     const old = currentSlot
     const opts = {
-      agent: old?.agent || defaultAgent || undefined,
+      agent: old?.agent || undefined,
+      agent_kind: old?.agent ? old?.agent_kind || undefined : undefined,
       model: old?.model || undefined,
       mode,
       memory_mode: newMode,
@@ -5755,7 +5759,7 @@ export default function ChatPage({ mode, embedded, embedMode, popout, noUrlSync 
                   newSlotMutation.mutate()
                   return
                 }
-                dispatch(createSlot({ agent: pendingAgent || defaultAgent || undefined, agent_kind: pendingAgent ? pendingAgentKindRef.current : undefined, model: pendingModel || undefined, mode }))
+                dispatch(createSlot({ agent: pendingAgent || undefined, agent_kind: pendingAgent ? pendingAgentKindRef.current : undefined, model: pendingModel || undefined, mode }))
               }}
             >
               {i18nT('pages.chatPage.start_a_new_chat')}
@@ -6545,7 +6549,8 @@ export default function ChatPage({ mode, embedded, embedMode, popout, noUrlSync 
                     no /capabilities route for the footer, and the footer is what carries the
                     failed-write alert — offering the write without its error path would make
                     a rejected request indistinguishable from a successful one. */}
-                {!embedded && <DefaultAgentRow agentName={activeAgentName} isDefault={activeAgentName === defaultAgent} onSetDefault={() => toggleDefaultAgent(activeAgentName)} />}
+                {/* The default for new sessions is a template; a crewmate's chat offers no such write. */}
+                {!embedded && currentSlot?.agent_kind !== 'member' && <DefaultAgentRow agentName={activeAgentName} isDefault={activeAgentName === defaultAgent} onSetDefault={() => toggleDefaultAgent(activeAgentName, 'template')} />}
                 {!embedded && <ManageAgentsFooter error={defaultAgentFailed} onManage={() => { setAgentDropdown(false); navigate('/capabilities?tab=crews') }} />}
               </div>,
               document.body

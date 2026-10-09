@@ -38,9 +38,9 @@ export function useSessionRosters({ activeSlot, activeSlotProject, refreshTrigge
   // setting — a per-hook refresh would leave sibling pickers showing the old default.
   // api.setDefaultAgent is called defensively: component tests mock the api module
   // partially, so the method can be absent under test.
-  const toggleDefaultAgent = useCallback((name: string) => {
+  const toggleDefaultAgent = useCallback((name: string, kind?: 'member' | 'template') => {
     setDefaultAgentFailed(false)
-    Promise.resolve(api.setDefaultAgent?.(name))
+    Promise.resolve(api.setDefaultAgent?.(name, kind))
       .then(() => dispatch(triggerRefresh()))
       .catch(() => setDefaultAgentFailed(true))
   }, [dispatch])

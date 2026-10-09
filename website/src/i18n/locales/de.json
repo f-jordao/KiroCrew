@@ -5740,7 +5740,7 @@
     },
     "agentDropdownList": {
       "active_in_this_session": "In dieser Sitzung aktiv",
-      "could_not_change_the_default_agent": "Der Standard-Crew-Kamerad konnte nicht geändert werden",
+      "could_not_change_the_default_custom_agent": "Der benutzerdefinierte Standard-Agent konnte nicht geändert werden",
       "default": "Standard",
       "default_agent_for_new_sessions": "Standard für neue Sitzungen",
       "group_members": "Crew-Kameraden",
@@ -5749,7 +5749,7 @@
       "new_sessions_start_with_this_agent": "Neue Sitzungen starten mit diesem Crew-Kameraden",
       "no_matches": "Keine Treffer",
       "set_default_agent": "<agent/> als Standard für neue Sitzungen festlegen",
-      "group_templates_hint": "Läuft im Arbeitsbereich und Gedächtnis des Standard-Crew-Kameraden – es wird nichts Neues angelegt."
+      "group_templates_hint_default_workspace": "Läuft in deinem Standard-Arbeitsbereich mit dem gemeinsamen Gedächtnis – es wird nichts Neues angelegt."
     },
     "agentImportFlow": {
       "back": "Zurück",
@@ -13410,7 +13410,7 @@
         "change_directory_hint": "Der Workspace liest Gedächtnis, Lektionen, Verlauf und Wissensdatenbank aus dem neuen Ordner. Nichts wird verschoben.",
         "default_crewmate": "Standard-Crew-Kamerad",
         "default_crewmate_failed": "Der Standard-Crew-Kamerad konnte nicht geändert werden",
-        "default_crewmate_hint": "Als welcher Crew-Kamerad eine neue Sitzung startet – dieselbe Einstellung, die der ★ im Chat-Eingabefeld (Standard-Agent für neue Sitzungen) schreibt. Bereits geöffnete Chats behalten den, mit dem sie begonnen haben.",
+        "default_crewmate_hint_badge": "Welcher Crew-Kamerad auf der Crew-Seite das Standard-Abzeichen trägt und nicht gelöscht werden kann. Neue Sitzungen starten nicht als Crew-Kamerad: Sie führen den benutzerdefinierten Standard-Agenten aus, den der ★ im Chat-Eingabefeld (Standard für neue Sitzungen) festlegt.",
         "default_crewmate_refused_because": "{{name}} konnte nicht als Standard-Crew-Kamerad gesetzt werden – {{reason}}. Lade die Seite neu und wähl noch einmal.",
         "default_crewmate_unknown_reason": "{{name}} steht nicht mehr in der Crewmate-Liste"
       },
@@ -17253,7 +17253,6 @@
       "filters_clear": "Filter zurücksetzen",
       "star": "{{name}} markieren",
       "unstar": "Markierung von {{name}} entfernen",
-      "default_agent_failed_title": "Der Standard-Crewmate konnte nicht gelesen werden, daher werden alle Crewmates angezeigt",
       "all_hidden_hint": "Crewmates, die du noch nicht genutzt hast, sind ausgeblendet. Suche, um sie zu finden.",
       "star_failed_title": "Markierung nicht gespeichert",
       "star_failed": "Die Markierung dieses Crewmates konnte nicht aktualisiert werden.",

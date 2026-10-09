@@ -160,7 +160,7 @@ export function ManageAgentsFooter({ onManage, error }: { onManage: () => void; 
           <ErrorNotice
             askAgent
             testId="agent-dropdown-default-error"
-            message={i18nT('components.agentDropdownList.could_not_change_the_default_agent')}
+            message={i18nT('components.agentDropdownList.could_not_change_the_default_custom_agent')}
           />
         </div>
       )}
@@ -218,7 +218,9 @@ export default function AgentDropdownList({ agents, activeAgent, activeKind, def
   const kinds = new Set(agents.map(a => a.selection_kind ?? 'member'))
   const showGroupChrome = kinds.size > 1
   const row = (a: AgentItem) => (
-    <AgentButton key={itemKey(a)} a={a} active={isActive(a)} isDefault={a.name === defaultAgent && a.selection_kind !== 'template'} showSource={!grouped} activeRef={activeRef} onSelect={onSelect} filter={filter} />
+    // The badge marks the default for NEW SESSIONS: the template a session
+    // created without a crewmate runs. A crewmate row is never that default.
+    <AgentButton key={itemKey(a)} a={a} active={isActive(a)} isDefault={a.name === defaultAgent && (a.selection_kind ?? 'template') === 'template'} showSource={!grouped} activeRef={activeRef} onSelect={onSelect} filter={filter} />
   )
 
   return (
@@ -245,9 +247,10 @@ export default function AgentDropdownList({ agents, activeAgent, activeKind, def
               )}
               {showGroupChrome && kind === 'template' && (
                 // What a template pick IS, said where the pick happens: it runs the
-                // shared template on the shared default memory and enrols nothing.
+                // shared template in the default workspace with shared memory and
+                // enrols nothing.
                 <p className="px-2.5 pb-1 text-[11px] leading-snug text-muted">
-                  {i18nT('components.agentDropdownList.group_templates_hint')}
+                  {i18nT('components.agentDropdownList.group_templates_hint_default_workspace')}
                 </p>
               )}
               {rows.map(row)}

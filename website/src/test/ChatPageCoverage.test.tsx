@@ -632,7 +632,8 @@ describe('ChatPage default-agent footer row', () => {
     // literal 'default' placeholder the pre-fix fallback rendered.
     expect(defaultAgentRowProps!.agentName).toBe('kirocrew')
     act(() => { defaultAgentRowProps!.onSetDefault() })
-    await waitFor(() => expect(setDefault).toHaveBeenCalledWith('kirocrew'))
+    // The row writes the default for NEW SESSIONS, a template.
+    await waitFor(() => expect(setDefault).toHaveBeenCalledWith('kirocrew', 'template'))
   })
 })
 
