@@ -15270,7 +15270,7 @@
         "opt_in_split_the_chat_into_resizable_session_pan": "Opt-in: Teilt den Chat in größenveränderbare Sitzungsbereiche ({{mod}}+D). Experimentell.",
         "other": "Sonstiges",
         "pin_last_prompt": "Neuesten Zug anheften",
-        "pin_last_prompt_desc": "Halte den neuesten Zug als fixiertes Banner sichtbar, sobald er über den sichtbaren Bereich hinausscrollt.",
+        "pin_last_prompt_desc": "Halte den neuesten Zug als fixiertes Banner sichtbar, sobald er über den sichtbaren Bereich hinausscrollt. Im Chat mit einem Crewmate nicht angezeigt.",
         "power": "Energie",
         "prevent_sleep_while_running": "Ruhezustand während der Ausführung verhindern",
         "product_manager": "Produktmanager",

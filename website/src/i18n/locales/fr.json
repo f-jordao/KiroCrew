@@ -15506,7 +15506,7 @@
         "opt_in_split_the_chat_into_resizable_session_pan": "Option à activer : divise le chat en volets de session redimensionnables ({{mod}}+D). Expérimental.",
         "other": "Autre",
         "pin_last_prompt": "Épingler le dernier tour",
-        "pin_last_prompt_desc": "Gardez le tour le plus récent visible sous forme de bannière fixe lorsqu’il défile au-dessus de la zone visible.",
+        "pin_last_prompt_desc": "Garde le tour le plus récent visible sous forme de bannière fixe lorsqu’il défile au-dessus de la zone visible. Non affiché dans la conversation d'un crewmate.",
         "power": "Alimentation",
         "prevent_sleep_while_running": "Empêcher la veille pendant l'exécution",
         "product_manager": "Chef de produit",

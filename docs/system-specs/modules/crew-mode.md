@@ -1582,7 +1582,15 @@ session the crewmate ran — a patrol wake, a cron, a sub-agent, a chat you
 opened), not "chats", so it does not contradict a chat that just said the
 crewmate has not spoken. Not "sessions" either: the RFC's vocabulary table keeps
 that word out of user copy. The composer of a crewmate's chat
-addresses the crewmate by name ("Message <name>…"), not the product. The roster row
+addresses the crewmate by name ("Message <name>…"), not the product. The
+pinned-prompt banner (Settings → Chat → pin last prompt) is never drawn in a
+crewmate's chat (#18346): `ChatPane` turns the pin off when handed a `crewmate`,
+whatever the setting says. The banner exists for long agent runs in the main
+chat, where the question scrolls out of sight while the answer streams; a DM
+with a colleague has short turns, the user's bubble is one row back, the
+crewmate's status line already says what it is doing, and a second floating
+card under the floating glass header read as clutter (owner decision,
+2026-10-09). Ordinary chats and split panes keep it. The roster row
 beside the chat quotes the same thing the chat draws: its `last_message` is
 SPEECH only (`last_speech_info` on the cold read, a
 `member/message` event without `preview` for a machinery row on the live path —

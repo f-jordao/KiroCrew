@@ -1154,7 +1154,7 @@ export const SETTINGS_REGISTRY: SettingEntry[] =
     "id": "chat.pin-the-latest-turn",
     "label": "Pin the latest turn",
     "labelKey": "pages.settings.chatPanel.pin_last_prompt",
-    "description": "Keep the most recent turn visible as a sticky banner once it scrolls above the fold.",
+    "description": "Keep the most recent turn visible as a sticky banner once it scrolls above the fold. Not shown in a crewmate's chat.",
     "tab": "chat",
     "type": "toggle",
     "occurrence": 1,

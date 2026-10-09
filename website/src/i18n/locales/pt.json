@@ -15506,7 +15506,7 @@
         "opt_in_split_the_chat_into_resizable_session_pan": "Opcional: divide o chat em painéis de sessão redimensionáveis ({{mod}}+D). Experimental.",
         "other": "Outro",
         "pin_last_prompt": "Fixar o turno mais recente",
-        "pin_last_prompt_desc": "Mantenha o turno mais recente visível como um banner fixo quando ele rolar para cima da área visível.",
+        "pin_last_prompt_desc": "Mantenha o turno mais recente visível como um banner fixo quando ele rolar para cima da área visível. Não aparece no chat de um crewmate.",
         "power": "Energia",
         "prevent_sleep_while_running": "Impedir a suspensão durante a execução",
         "product_manager": "Gerente de produto",
