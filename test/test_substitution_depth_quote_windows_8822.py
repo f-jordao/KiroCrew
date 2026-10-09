@@ -585,3 +585,375 @@ class TestWordStartAndHeredocBoundaries:
         # ``<<`` inside quotes is data; ``<<<`` is a here-string, not a heredoc.
         assert sn._strip_heredoc_bodies("echo '<<E' rest") == "echo '<<E' rest"
         assert sn._strip_heredoc_bodies("cmd <<<word\nrest") == "cmd <<<word\nrest"
+
+
+class TestArithmeticAndDeepNestingAreNotMisread:
+    """Round-6 findings: ``$(( … ))`` arithmetic must not be read as a heredoc
+    (its ``<<`` is a shift) nor collapsed as a command substitution (its result
+    is a number spliced into the word), and a deeply nested double-quoted
+    substitution must yield a verdict, never a RecursionError.
+    """
+
+    @pytest.mark.parametrize(
+        "cmd",
+        [
+            # F1 -- ``$((1 << 2))`` was read as a heredoc tagged ``2``, so the
+            # following line (a real self-kill) was stripped and allowed.
+            "echo $((1 << 2))\npkill -f $(true ')' ; true) {n}",
+            "echo $((3<<1)) ; pkill -f $(true ')' ; true) {n}",
+            "x=$((1<<4)); {n} $(true ')' ; true) {t}",
+            # ANSI-C / locale quoted heredoc delimiter must resolve to its literal
+            # text so the terminator matches and the tail is NOT erased.
+            "cat <<$'E'\nbody\nE\npkill -f $(true ')' ; true) {n}",
+            "cat <<$\"E\"\nbody\nE\npkill -f $(true ')' ; true) {n}",
+        ],
+    )
+    def test_arithmetic_or_quoted_tag_does_not_erase_the_tail(self, cmd):
+        assert is_denied(cmd.format(n=_N, t=_T))
+
+    def test_arithmetic_shift_is_not_a_heredoc(self):
+        assert sn._heredoc_tags_on_line("echo $((1 << 2))")[0] == []
+        # a real heredoc on the same line is still found
+        assert sn._heredoc_tags_on_line("cat <<E $((1 << 2))")[0] == [(False, "E")]
+
+    @pytest.mark.parametrize(
+        "delim,tag",
+        [("<<$'E'", "E"), ('<<$"E"', "E"), ("<<-$'E'", "E"), ("<<'E'", "E"), ("<<E", "E")],
+    )
+    def test_quote_introducer_stripped_from_heredoc_tag(self, delim, tag):
+        tags = sn._heredoc_tags_on_line("cat " + delim)[0]
+        assert tags and tags[0][1] == tag
+
+    @pytest.mark.parametrize(
+        "cmd",
+        [
+            # F3 -- ``kiro$((2))crew`` is arithmetic glued into the name, so bash
+            # runs ``kiro2crew`` which the base permits.  The neutralizer must
+            # keep the arithmetic verbatim, not collapse it and manufacture
+            # ``kirocrew``.
+            "pkill -f kiro$((2))crew",
+            "pkill -f kiro$((1+1))crew",
+        ],
+    )
+    def test_arithmetic_does_not_manufacture_a_protected_target(self, cmd):
+        assert is_denied(cmd) is None
+        # the literal spelling the arithmetic evaluates to is likewise permitted
+        assert is_denied("pkill -f kiro2crew") is None
+
+    def test_neutralizer_keeps_arithmetic_verbatim(self):
+        assert sn._neutralize_substitution_spans("kiro$((2))crew") == "kiro$((2))crew"
+        assert sn._neutralize_substitution_spans("a $((1+1)) b") == "a $((1+1)) b"
+        # a true command substitution next to arithmetic still collapses
+        assert sn._neutralize_substitution_spans("a $((1+1)) $(x) b") == (
+            f"a $((1+1)) {sn._SUBSTITUTION_PLACEHOLDER} b"
+        )
+
+    def test_deeply_nested_double_quoted_substitution_does_not_crash(self):
+        # F2 -- a deeply nested double-quoted substitution must not raise
+        # RecursionError out of the scanner.  The recursion budget makes the
+        # span scanner itself bounded, which is what the crash depended on; the
+        # cost of the FULL floor on a huge pathological command is the
+        # pre-existing super-linear self-kill walk tracked separately, so this
+        # asserts the budget directly (cheap) plus one modest end-to-end call.
+        deep = 'true "$(' * 2000 + "x" + ')"' * 2000
+        rel, proven = sn._matching_close_paren(deep, 0)  # no RecursionError
+        assert proven is False and rel == len(deep)
+        # a modest nested command still returns a verdict end to end
+        modest = "kirocrew doctor $(" + 'true "$(' * 30 + "true" + ')"' * 30 + ")"
+        assert is_denied(modest) is None or isinstance(is_denied(modest), str)
+
+    def test_matching_close_paren_handles_deep_nesting_without_recursion(self):
+        # The nested double-quoted substitution walk is iterative, so a deeply
+        # nested span neither raises RecursionError nor runs to the end of the
+        # text: a balanced span resolves to its REAL closing boundary.
+        inner = 'true "$(' * 200 + "x" + ')"' * 200
+        text = inner + ") rest"
+        rel, proven = sn._matching_close_paren(text, 0)
+        assert proven is True
+        assert text[rel:].strip() == "rest"
+
+    @pytest.mark.parametrize(
+        "cmd",
+        [
+            # F1(round7) -- a BARE ((1 << 2)) arithmetic command (no $ prefix) was
+            # read as a heredoc tagged '2' and erased the following self-kill.
+            "((1 << 2))\npkill -f $(true ')' ; true) {n}",
+            "((3<<1)); {n} $(true ')' ; true) {t}",
+        ],
+    )
+    def test_bare_arithmetic_command_is_not_a_heredoc(self, cmd):
+        assert is_denied(cmd.format(n=_N, t=_T))
+
+    def test_bare_arithmetic_shift_is_not_a_heredoc_tag(self):
+        assert sn._heredoc_tags_on_line("((1 << 2))")[0] == []
+        assert sn._strip_heredoc_bodies("((1 << 2))\npkill -f x kirocrew") == (
+            "((1 << 2))\npkill -f x kirocrew"
+        )
+
+    @pytest.mark.parametrize(
+        "cmd",
+        [
+            # F2(round7) -- a quoted '(' inside a nested $() within arithmetic must
+            # not stretch the arithmetic span over a later real substitution.
+            "echo $(( $(true '(' ; printf 0) + 1)); pkill -f $(true ')' ; true) {n}",
+            "echo $(( `true '('` + 1)); {n} $(true ')' ; true) {t}",
+        ],
+    )
+    def test_quoted_paren_in_nested_sub_does_not_swallow_later_span(self, cmd):
+        assert is_denied(cmd.format(n=_N, t=_T))
+
+    def test_arith_expansion_end_is_quote_aware(self):
+        # The nested $() carries a quoted '(' / ')'; the arithmetic span must end
+        # at its own ')' pair, not be extended by the quoted parens.
+        src = "$(( $(true '(' ; printf 0) + 1)) tail"
+        end = sn._arith_expansion_end(src, 3)
+        assert src[:end] == "$(( $(true '(' ; printf 0) + 1))"
+        assert src[end:] == " tail"
+
+
+class TestCrossLineQuoteAnsiCAndNestedArithmetic:
+    """Round-8 findings: the heredoc scan must carry quote state ACROSS lines,
+    decode an ANSI-C delimiter, and the arithmetic span must not be stretched by
+    a substitution opened inside double quotes.
+    """
+
+    def test_multiline_quoted_double_angle_is_not_a_heredoc(self):
+        # F1 -- a ``<<`` inside a MULTI-LINE double-quoted string is data, not a
+        # heredoc opener; the quote opened on an earlier line must be carried.
+        cmd = "echo \"a\n<<E\nb\"\npkill -f $(true ')' ; true) {n}".format(n=_N)
+        assert is_denied(cmd)
+
+    def test_strip_carries_quote_state_across_lines(self):
+        # the open double quote on line 1 means line 2's ``<<E`` opens no heredoc,
+        # so nothing after it is erased.
+        src = 'echo "a\n<<E\nb"\npkill -f x kirocrew'
+        assert sn._strip_heredoc_bodies(src) == src
+
+    @pytest.mark.parametrize(
+        "cmd",
+        [
+            # F2 -- the ANSI-C delimiter ``$'\x45'`` decodes to ``E``; the stripper
+            # must match the ``E`` terminator and keep the command after it.
+            "cat <<$'\\x45'\nbody\nE\npkill -f $(true ')' ; true) {n}",
+            "cat <<$'\\x45'\nbody\nE\n{n} $(true ')' ; true) {t}",
+        ],
+    )
+    def test_ansi_c_heredoc_delimiter_is_decoded(self, cmd):
+        assert is_denied(cmd.format(n=_N, t=_T))
+
+    def test_ansi_c_tag_decodes_to_literal(self):
+        tags, _, _, _ = sn._heredoc_tags_on_line("cat <<$'\\x45'")
+        assert tags == [(False, "E")]
+
+    @pytest.mark.parametrize(
+        "cmd",
+        [
+            # F3 -- a ``$(`` opened INSIDE double quotes within arithmetic must be
+            # consumed, so its interior ``(`` does not stretch the arithmetic span
+            # over the later self-kill.
+            'echo $(( "$(true "(" ; printf 0)" + 1 )); pkill -f $(true \')\' ; true) {n}',
+            'echo $(( "$(true "(" ; printf 0)" + 1 )); {n} $(true \')\' ; true) {t}',
+        ],
+    )
+    def test_quoted_sub_in_arithmetic_does_not_swallow_tail(self, cmd):
+        assert is_denied(cmd.format(n=_N, t=_T))
+
+    def test_arith_expansion_end_handles_quoted_nested_sub(self):
+        src = '$(( "$(true "(" ; printf 0)" + 1 )) tail'
+        end = sn._arith_expansion_end(src, 3)
+        assert src[:end] == '$(( "$(true "(" ; printf 0)" + 1 ))'
+        assert src[end:] == " tail"
+
+
+class TestGluedSpanConservativelyRefusedNoResolver:
+    """A glued substitution span collapses to the empty string (fail-closed), so
+    the floor leans toward DETECTION.
+
+    This is a deliberate, KNOWN OVER-REFUSAL: a glued span whose generator emits a
+    non-empty literal (``kiro$(printf 2)crew`` -> bash runs ``kiro2crew``, a
+    different program) is refused even though it is not a self-kill.  Statically
+    modelling the generator's output to avoid that is not attempted, because
+    guessing empty where bash emits text would HIDE a real self-kill; refusal is
+    the safe default.
+    """
+
+    @pytest.mark.parametrize(
+        "cmd",
+        [
+            # KNOWN OVER-REFUSAL (safe failure): bash would run ``kiro2crew`` (a
+            # different program), but the glued span collapses to empty so the
+            # floor refuses rather than risk hiding a self-kill.
+            "pkill -f kiro$(printf 2)crew",
+            'pkill -f "kiro$(printf 2)crew"',
+            "pkill -f kiro$(echo 2)crew",
+        ],
+    )
+    def test_glued_nonempty_generator_is_conservatively_refused(self, cmd):
+        assert is_denied(cmd)
+
+    @pytest.mark.parametrize(
+        "cmd",
+        [
+            # Empty-output and opaque generators glued into the name fuse to the
+            # self-name, so these are correctly denied.
+            "pkill -f kiro$()crew",
+            "pkill -f kiro$(true)crew",
+            "pkill -f kiro$(x)crew",
+        ],
+    )
+    def test_empty_or_opaque_glue_still_denied(self, cmd):
+        assert is_denied(cmd)
+
+    def test_neutralizer_collapses_every_glued_span_to_empty(self):
+        # All glued spans -- empty, opaque, or non-empty-generator -- collapse to
+        # the empty string (fail-closed); none is resolved.
+        assert sn._neutralize_substitution_spans("kiro$()crew") == "kirocrew"
+        assert sn._neutralize_substitution_spans("kiro$(x)crew") == "kirocrew"
+        assert sn._neutralize_substitution_spans("kiro$(true)crew") == "kirocrew"
+        assert sn._neutralize_substitution_spans("kiro$(printf 2)crew") == "kirocrew"
+        assert sn._neutralize_substitution_spans("kiro$(echo foo)crew") == "kirocrew"
+
+
+class TestHeredocDelimiterAndMultilineArithmeticEdges:
+    """Round-10 findings: the heredoc scan must handle a multi-line arithmetic
+    span, an empty quoted delimiter and a control-character delimiter without
+    erasing the command after it, and the glued-span resolver must not resolve a
+    quoted flag.
+    """
+
+    def test_quoted_flag_generator_is_conservatively_refused(self):
+        # F1 (round-4) -- the earlier literal resolver that could be fooled by a
+        # quoted flag was WITHDRAWN; a glued span now always collapses to empty,
+        # so a would-be ``kiro$(printf '-n')crew`` is simply refused (fail-closed),
+        # with no resolver to mis-model the generator's output.
+        assert is_denied("pkill -f kiro$(printf '-n')crew")
+        assert is_denied("pkill -f kiro$(echo '-n')crew")
+
+    def test_multiline_arithmetic_shift_is_not_a_heredoc(self):
+        # F2 -- a $((...)) spanning lines: the << on the later line is a shift,
+        # not a heredoc, so the self-kill after it is still seen.
+        cmd = "x=$((1 +\n2 << 2))\npkill -f $(true ')' ; true) {n}".format(n=_N)
+        assert is_denied(cmd)
+
+    def test_empty_quoted_heredoc_delimiter_body_is_stripped(self):
+        # F3 -- <<'' closes on a blank line; the body (with its apostrophe) must
+        # not leak into command scanning.
+        cmd = "cat <<''\n'\n\npkill -f $(true ')' ; true) {n}".format(n=_N)
+        assert is_denied(cmd)
+        # the empty delimiter is recorded (not dropped) so the body is consumed
+        assert sn._strip_heredoc_bodies("cat <<''\nbody\n\nrest") == "cat <<''\nrest"
+
+    def test_control_char_heredoc_delimiter_decodes_losslessly(self):
+        # F4 -- <<$'\t' has a TAB delimiter; the lossless decode matches a tab
+        # terminator line so the command after it is not erased.
+        assert sn._decode_heredoc_tag_escapes("\\t") == "\t"
+        assert sn._decode_heredoc_tag_escapes("\\x45") == "E"
+        cmd = "cat <<$'\\t'\nbody\n\t\npkill -f $(true ')' ; true) {n}".format(n=_N)
+        assert is_denied(cmd)
+
+    @pytest.mark.parametrize(
+        "cmd",
+        [
+            # none of these edges may reopen a prior High self-kill:
+            "pkill -f kiro$()crew",
+            "pkill -f kiro$(x)crew",
+            "pkill -f kiro$(true)crew",
+            "cat <<E\nbody\nE\npkill -f $(true ')' ; true) {n}",
+            "echo \"a\n<<E\nb\"\npkill -f $(true ')' ; true) {n}",
+        ],
+    )
+    def test_no_prior_high_reopened(self, cmd):
+        assert is_denied(cmd.format(n=_N))
+
+
+class TestArithmeticQuoteStateAndUnmatchedDelimiterFailSafe:
+    """Round-11 findings: the arithmetic branch must carry the surrounding quote
+    state (the ``$(`` branch does), and an UNMATCHED heredoc delimiter must erase
+    nothing rather than consume every remaining line.
+    """
+
+    @pytest.mark.parametrize(
+        "cmd",
+        [
+            # F1 -- after a ``$(( ))`` the quote state must be preserved, or a
+            # decoy that follows hides the self-kill.
+            "echo \"$((1))\" ; pkill -f $(true ')' ; true) {n}",
+            "x=$((1)); pkill -f $(true ')' ; true) {n}",
+        ],
+    )
+    def test_arithmetic_branch_preserves_quote_state(self, cmd):
+        assert is_denied(cmd.format(n=_N))
+
+    def test_unmatched_heredoc_delimiter_erases_nothing(self):
+        # F2 -- a delimiter whose terminator never appears must NOT consume the
+        # rest of the input (that would drop a real command); fail safe.
+        src = "cat <<$'\\u0045'\nbody\npkill -f x kirocrew"
+        out = sn._strip_heredoc_bodies(src)
+        assert "pkill -f x kirocrew" in out
+        assert "body" in out  # nothing erased
+
+    def test_unmatched_delimiter_self_kill_is_denied(self):
+        cmd = "cat <<$'\\u0045'\nbody\npkill -f $(true ')' ; true) {n}".format(n=_N)
+        assert is_denied(cmd)
+
+    def test_matched_heredoc_still_strips(self):
+        # the fail-safe must not stop a genuine, matchable heredoc from stripping.
+        assert sn._strip_heredoc_bodies("cat <<E\nb\nE\nrest") == "cat <<E\nrest"
+        cmd = "cat <<E\nbody\nE\npkill -f $(true ')' ; true) {n}".format(n=_N)
+        assert is_denied(cmd)
+
+
+class TestEveryNeutralizerExitOverMatches:
+    """Round-12 ruling: audit EVERY exit of the neutralizer so none ERASES a
+    protected argv suffix.  When a span's extent is unknown (unterminated, or a
+    nested walk that cannot resolve the boundary), it must over-match (inert
+    placeholder) or the surrounding scan must keep the text, never collapse the
+    rest to nothing.  One test per exit.
+    """
+
+    def _ph(self):
+        return sn._SUBSTITUTION_PLACEHOLDER
+
+    def test_depth_exhaustion_preserves_the_suffix(self):
+        # The nested walk is iterative now, so a deeply nested span resolves its
+        # real boundary and the trailing kill target survives neutralization.
+        nested = 'true "$(' * 121 + "true" + ')"' * 121
+        cmd = "pkill -f $(true ')' ; " + nested + ") kirocrew"
+        assert sn._neutralize_substitution_spans(cmd).endswith("kirocrew")
+        assert is_denied(cmd)
+
+    def test_unterminated_command_substitution_over_matches(self):
+        # No closing ``)``: the span has no known end, so it becomes a placeholder
+        # (never the empty string that would erase the rest).
+        out = sn._neutralize_substitution_spans("a $(true ; echo b")
+        assert self._ph() in out
+
+    def test_unterminated_backtick_over_matches(self):
+        out = sn._neutralize_substitution_spans("a `true ; echo b")
+        assert self._ph() in out
+
+    def test_unterminated_process_substitution_over_matches(self):
+        out = sn._neutralize_substitution_spans("a <(true ; echo b")
+        assert self._ph() in out
+
+    def test_glued_unterminated_substitution_is_not_erased(self):
+        # Even GLUED, an unterminated span must NOT collapse to empty (that would
+        # erase the trailing text); it over-matches to the placeholder.
+        out = sn._neutralize_substitution_spans("kiro$(true ; echo crew")
+        assert out != "kiro" and self._ph() in out
+
+    def test_unclosed_arithmetic_at_eof_is_copied_verbatim(self):
+        # An unterminated ``$((`` copies the remainder verbatim (no erasure).
+        out = sn._neutralize_substitution_spans("x=$((1 + kirocrew")
+        assert "kirocrew" in out
+
+    def test_unmatched_heredoc_delimiter_erases_nothing_exit(self):
+        src = "cat <<$'\\u0041'\nbody\npkill -f x kirocrew"
+        out = sn._strip_heredoc_bodies(src)
+        assert "pkill -f x kirocrew" in out and "body" in out
+
+    def test_proven_empty_glued_span_still_collapses(self):
+        # The ONLY empty-collapse that survives: a PROVEN span (cleanly closed)
+        # glued to a word, where bash fuses the neighbours.
+        assert sn._neutralize_substitution_spans("kiro$()crew") == "kirocrew"
+        assert sn._neutralize_substitution_spans("kiro$(x)crew") == "kirocrew"

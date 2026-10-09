@@ -206,9 +206,26 @@ def _url_payload_command(n: int) -> str:
 #: window early, so the floors re-scan a copy with each span collapsed to one inert
 #: word. The pass also carries a word-start marker for the ``#`` comment rule and
 #: removes heredoc bodies first, so neither an empty quote before a ``#`` nor a
-#: quote inside a heredoc body derails the walk before the decoy. No target,
-#: matching rule or threshold moved.
-_PACKAGE_LINE_BUDGET = 28_925
+#: quote inside a heredoc body derails the walk before the decoy. Raised again,
+#: from 28,925, so arithmetic ``$(( … ))`` is kept verbatim (not read as a heredoc
+#: or collapsed as a command substitution) and the nested-span scanner carries a
+#: recursion budget that fails closed. Raised again, from 28,991, so a BARE
+#: ``(( … ))`` arithmetic command is also skipped by the heredoc scan and the
+#: arithmetic span end is read quote-awarely (a quoted ``(`` in a nested
+#: substitution stays inside its own span). Raised again, from 29,022, so the
+#: heredoc scan carries a multi-line arithmetic span, records an empty quoted
+#: delimiter, and decodes a control-character delimiter losslessly -- each keeping
+#: the command after a heredoc from being erased. A glued substitution span
+#: collapses to the empty string (fail-closed): a static output resolver that
+#: tried to avoid the resulting over-refusal was withdrawn, because modelling a
+#: generator's output risked hiding a self-kill. No target, matching rule or
+#: threshold moved. Raised again, from 29,115, so the arithmetic branch carries
+#: the surrounding quote state and an unmatched heredoc delimiter erases nothing
+#: (fail-safe) rather than consuming the rest of the input. Raised again, from
+#: 29,126, so the nested double-quoted substitution walk is iterative (no
+#: recursion budget) and every neutralizer exit over-matches an unresolved span
+#: with the inert placeholder instead of erasing the argv after it.
+_PACKAGE_LINE_BUDGET = 29_146
 
 #: Ceiling on any ONE file in the package. This is what the bound is really for --
 #: a package total says nothing about a single file growing back into a second

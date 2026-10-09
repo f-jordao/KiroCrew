@@ -2422,6 +2422,13 @@ def _matching_close_paren(text: str, open_end: int) -> "tuple[int, bool]":
     pos = 0
     state = 0
     ansi = False
+    # Explicit stack of outer quote states for nested double-quoted substitutions,
+    # each entry the ``depth`` at which that substitution was opened.  Replaces the
+    # former recursion so there is no depth budget to exhaust: the TRUE closing
+    # ``)`` is always found, never approximated by running to the end of the text
+    # (which, for a caller that NEUTRALIZES the span, would erase the argv after
+    # it -- a self-kill the floor must still see).
+    dq_stack: "list[int]" = []
     while pos <= len(text):
         jumped = False
         for step in _iter_shell_chars(text[pos:], state, ansi):
@@ -2434,12 +2441,14 @@ def _matching_close_paren(text: str, open_end: int) -> "tuple[int, bool]":
             # skip the opener as inactive and then miscount the FIRST interior
             # ``)`` once the body's own quote toggles -- closing the outer span
             # early (``$(true "$(true ")" ; true)" ; true)`` read as closing at
-            # the inner quoted ``)``).  Recurse to consume the whole nested span,
-            # then resume in the OUTER double-quote state.
+            # the inner quoted ``)``).  Enter the nested span iteratively: count
+            # it on ``depth``, remember the outer double-quote state on a stack,
+            # and resume scanning the body from state 0.
             if step.state == 2 and not step.active:
                 if text.startswith("$(", off):
-                    rel, _ = _matching_close_paren(text[off + 2 :], 0)
-                    pos, state, ansi = off + 2 + rel, 2, False
+                    depth += 1
+                    dq_stack.append(depth)
+                    pos, state, ansi = off + 2, 0, False
                     jumped = True
                     break
                 if step.char == "`" and len(step.text) != 2:
@@ -2476,6 +2485,15 @@ def _matching_close_paren(text: str, open_end: int) -> "tuple[int, bool]":
                 depth -= 1
                 if depth == 0:
                     return (off + len(step.text), True)
+                # Closing a nested double-quoted substitution: resume the OUTER
+                # double-quote state so the rest of that quoted word is scanned
+                # correctly.  The walk must restart from the next character for
+                # the restored state to take effect.
+                if dq_stack and depth == dq_stack[-1] - 1:
+                    dq_stack.pop()
+                    pos, state, ansi = off + len(step.text), 2, False
+                    jumped = True
+                    break
         if not jumped:
             break
     return (len(text), False)
@@ -3024,37 +3042,100 @@ def _strip_heredoc_bodies(source: str) -> str:
     lines = source.split("\n")
     out_lines: list[str] = []
     li = 0
+    carry_state, carry_ansi = 0, False  # quote state carried BETWEEN lines
+    carry_arith = False  # open arithmetic span carried BETWEEN lines
     while li < len(lines):
         line = lines[li]
         out_lines.append(line)
-        tags = _heredoc_tags_on_line(line)
+        tags, carry_state, carry_ansi, carry_arith = _heredoc_tags_on_line(
+            line, carry_state, carry_ansi, carry_arith
+        )
         li += 1
         for dash, tag in tags:
             # Consume body lines until the terminator (the tag ALONE on a line,
             # leading tabs stripped for ``<<-``), dropping both body and tag line.
+            # A heredoc body also resets the inter-line quote/arith state: its
+            # content is data, not shell source.  The terminator is matched
+            # case-folded as well as exactly: a self-protection caller lowercases
+            # the command before this runs, which leaves an escape-decoded
+            # delimiter (``$'\x45'`` -> ``E``) upper while the terminator line
+            # became lower, and a case-folded match ends the body EARLIER (erases
+            # LESS), the fail-safe direction -- never dropping the command after.
+            carry_state, carry_ansi, carry_arith = 0, False, False
+            tag_cf = tag.casefold()
+            start_li = li
+            matched = False
             while li < len(lines):
                 candidate = lines[li]
                 stripped = candidate.lstrip("\t") if dash else candidate
                 li += 1
-                if stripped == tag:
+                if stripped == tag or stripped.casefold() == tag_cf:
+                    matched = True
                     break
+            if not matched:
+                # The terminator never appeared: an unmatched or mis-decoded
+                # delimiter must NOT erase every remaining line (that would drop a
+                # real command).  Fail SAFE -- rewind so the following lines are
+                # re-scanned as ordinary source and nothing is erased.
+                li = start_li
+                carry_state, carry_ansi, carry_arith = 0, False, False
+                break
     return "\n".join(out_lines)
 
 
-def _heredoc_tags_on_line(line: str) -> "list[tuple[bool, str]]":
-    """Ordered ``(dash, tag)`` pairs for the heredoc redirects opened on *line*.
+def _heredoc_tags_on_line(
+    line: str, in_state: int = 0, in_ansi: bool = False, in_arith: bool = False
+) -> "tuple[list[tuple[bool, str]], int, bool, bool]":
+    """``(tags, end_state, end_ansi, end_arith)`` for the heredoc redirects opened
+    on *line*, walked from the quote state *in_state*/*in_ansi* and the open-
+    arithmetic state *in_arith* carried from the prior line.
 
     ``dash`` is True for ``<<-`` (its terminator may carry leading tabs); ``tag``
     is the delimiter with any surrounding quotes removed (``<<'E'`` and ``<<E``
-    both close on a line equal to ``E``).  Only a real, unquoted ``<<`` operator
-    counts -- a ``<<`` inside quotes, after a ``#`` comment, or escaped is skipped
-    -- and ``<<<`` (a here-string, no body) is NOT a heredoc.
+    both close on a line equal to ``E``; an ANSI-C ``<<$'…'`` body is decoded).
+    Only a real, unquoted ``<<`` operator counts -- a ``<<`` inside quotes
+    (INCLUDING a multi-line quote still open from an earlier line, via
+    *in_state*), after a ``#`` comment, escaped, or inside a ``(( … ))`` /
+    ``$(( … ))`` ARITHMETIC span -- INCLUDING one still open from an earlier line
+    (via *in_arith*), where ``<<`` is the shift operator, not a redirect -- is
+    skipped, and ``<<<`` (a here-string, no body) is NOT a heredoc.
+    ``end_state``/``end_ansi``/``end_arith`` are the states after the last
+    character, so the caller can carry an unterminated quote or arithmetic span
+    into the next line.
     """
     tags: list[tuple[bool, str]] = []
-    for step in _iter_shell_chars(line, 0, False):
+    arith_until = -1  # index just past the current ``$(( … ))`` span, or -1
+    end_state, end_ansi = in_state, in_ansi
+    # A multi-line arithmetic span still open from a prior line: the whole line is
+    # arithmetic body until a ``)`` closes it, so no ``<<`` on it is a heredoc.
+    # Mis-tracking only ever SKIPS a heredoc (erases less), the fail-safe way.
+    if in_arith:
+        # Whole line is arithmetic body; it stays open until a ``)`` appears.
+        end_arith = ")" not in line
+        return tags, in_state, in_ansi, end_arith
+    end_arith = False
+    for step in _iter_shell_chars(line, in_state, in_ansi):
+        end_state, end_ansi = step.state, step.ansi
         if not step.active or len(step.text) == 2:
             continue
         off = step.offset
+        if off < arith_until:
+            continue
+        # ``$(( … ))`` arithmetic expansion AND a bare ``(( … ))`` arithmetic
+        # command: ``<<`` inside either is the shift operator, so skip the whole
+        # span before any heredoc test.  Only the FIRST ``(`` of the run opens
+        # it (the walk yields a step per character).  A span that reaches the end
+        # of the line is UNCLOSED, so arithmetic stays open into the next line.
+        if step.char == "$" and line.startswith("$((", off):
+            arith_until = _arith_expansion_end(line, off + 3)
+            if arith_until >= len(line):
+                end_arith = True
+            continue
+        if step.char == "(" and line.startswith("((", off) and (off == 0 or line[off - 1] != "("):
+            arith_until = _arith_expansion_end(line, off + 2)
+            if arith_until >= len(line):
+                end_arith = True
+            continue
         if step.char == "#" and _opens_comment(line, off):
             break
         # Match only the FIRST ``<`` of the operator run: the walk yields a step
@@ -3069,27 +3150,142 @@ def _heredoc_tags_on_line(line: str) -> "list[tuple[bool, str]]":
         if dash:
             rest = rest[1:]
         rest = rest.lstrip()
-        # The tag is the next word; a quoted tag (``<<'E'``, ``<<"E"``) is literal,
-        # so the surrounding quote delimiters are dropped from the tag text.  A
-        # quote DELIMITER is reported by the walker either active (the opener) or
-        # as the state-changing character (the closer), so drop both and keep only
-        # the characters that are quoted or plain word characters.
+        # The tag is the next word; a quoted tag (``<<'E'``, ``<<"E"``, the
+        # ANSI-C/locale forms ``<<$'E'`` / ``<<$"E"``) is literal, so the quote
+        # introducer and delimiters are dropped.  An ANSI-C ``$'…'`` body also has
+        # its escapes DECODED (``$'\x45'`` -> ``E``), matching bash's delimiter,
+        # so the terminator line is recognised and the body after it is not
+        # erased.  A quote DELIMITER is reported by the walker either active (the
+        # opener) or as the state-changing character (the closer); drop both.
         tag_chars: list[str] = []
         prev_state = 0
+        ansi_buf: list[str] = []  # raw body of the current $'…' segment, for decode
+        in_ansi_c = False
+        had_delim = False  # a delimiter word was present (even an empty quoted one)
         for tstep in _iter_shell_chars(rest, 0, False):
             tch = tstep.char
             escaped = len(tstep.text) == 2
             if tstep.active and not escaped and (tch.isspace() or tch in "|&;()<>"):
                 break
+            # A ``$`` right before a quote is the ANSI-C/locale quote introducer
+            # (``$'E'`` -> ``E``), not a tag character.  Remember an ANSI-C
+            # ``$'`` so its body is decoded when the quote closes.
+            if (
+                tstep.active
+                and not escaped
+                and tch == "$"
+                and rest[tstep.offset + 1 : tstep.offset + 2] in ("'", '"')
+            ):
+                in_ansi_c = rest[tstep.offset + 1 : tstep.offset + 2] == "'"
+                continue
             is_quote_delim = tch in "'\"" and not escaped and (tstep.state != prev_state)
+            opening = is_quote_delim and tstep.state != 0
+            closing = is_quote_delim and tstep.state == 0
             prev_state = tstep.state
             if is_quote_delim:
+                if closing and in_ansi_c:
+                    tag_chars.append(_decode_heredoc_tag_escapes("".join(ansi_buf)))
+                    ansi_buf = []
+                    in_ansi_c = False
+                    had_delim = True
+                elif opening:
+                    had_delim = True
                 continue  # quote delimiter: no character of its own
-            tag_chars.append(tch)
+            if in_ansi_c:
+                ansi_buf.append(tstep.text)  # keep raw (``\x45``) for decode
+            else:
+                tag_chars.append(tch)
+                had_delim = True
         tag = "".join(tag_chars)
-        if tag:
+        # Record the heredoc whenever a DELIMITER was present, even an empty one
+        # (``<<''`` closes on a blank line): dropping it would leak the body into
+        # command scanning.  A tag carrying a newline is unmatchable, so skip it
+        # (do not strip) rather than erase to end of input -- the fail-safe
+        # direction.
+        if had_delim and "\n" not in tag:
             tags.append((dash, tag))
-    return tags
+    return tags, end_state, end_ansi, end_arith
+
+
+def _decode_heredoc_tag_escapes(body: str) -> str:
+    """LOSSLESS decode of a ``$'…'`` heredoc delimiter body to bash's literal tag.
+
+    Unlike :func:`_decode_ansi_c_body` (a redaction view that maps control
+    escapes to a SPACE, which would make a tab-delimited heredoc's terminator
+    never match and erase the command after it), this yields the exact character:
+    ``\\t`` -> TAB, ``\\n`` -> newline, ``\\xHH`` / octal -> that byte, the literal
+    escapes verbatim.  An unrecognised escape is kept literally (backslash plus
+    the character), which only ever makes the tag HARDER to match -- the fail-safe
+    direction, since a non-match erases less.
+    """
+    out: list[str] = []
+    i = 0
+    n = len(body)
+    simple = {
+        "t": "\t",
+        "n": "\n",
+        "r": "\r",
+        "a": "\a",
+        "b": "\b",
+        "f": "\f",
+        "v": "\v",
+        "e": "\x1b",
+        "\\": "\\",
+        "'": "'",
+        '"': '"',
+        "?": "?",
+    }
+    while i < n:
+        c = body[i]
+        if c != "\\" or i + 1 >= n:
+            out.append(c)
+            i += 1
+            continue
+        nxt = body[i + 1]
+        if nxt in simple:
+            out.append(simple[nxt])
+            i += 2
+            continue
+        if nxt == "x":
+            j = i + 2
+            hexd = ""
+            while j < n and len(hexd) < 2 and body[j] in "0123456789abcdefABCDEF":
+                hexd += body[j]
+                j += 1
+            if hexd:
+                out.append(chr(int(hexd, 16)))
+                i = j
+                continue
+        if nxt in "01234567":
+            j = i + 1
+            octd = ""
+            while j < n and len(octd) < 3 and body[j] in "01234567":
+                octd += body[j]
+                j += 1
+            out.append(chr(int(octd, 8) & 0xFF))
+            i = j
+            continue
+        out.append(c + nxt)  # unrecognised: keep literal (harder to match)
+        i += 2
+    return "".join(out)
+
+
+def _arith_expansion_end(source: str, body_start: int) -> int:
+    """Index just past the ``))`` closing a ``$(( … ))`` or bare ``(( … ))``
+    arithmetic command whose body begins at *body_start* (the character after the
+    opening ``((``).
+
+    Delegates to :func:`_matching_close_paren`, the module's hardened quote-aware
+    paren matcher: the OUTER ``(`` of the ``((`` (at ``body_start - 1``) closes at
+    the LAST ``)`` of the ``))``, and that matcher already consumes nested
+    ``$( … )`` / `` ` … ` `` spans, quoted parens, ``case`` patterns and comments,
+    so a quoted ``(`` inside a nested substitution cannot stretch the span over a
+    later command.  An unbalanced body matches to the end of the text (the
+    matcher's fail-closed reading), so the remainder is copied verbatim rather
+    than mis-read.
+    """
+    rel, _ = _matching_close_paren(source[body_start - 1 :], 0)
+    return (body_start - 1) + rel
 
 
 def _neutralize_substitution_spans(source: str) -> str:
@@ -3171,6 +3367,18 @@ def _neutralize_substitution_spans(source: str) -> str:
                     word_started = False
                 jumped = True
                 break
+            # ``$(( … ))`` ARITHMETIC EXPANSION -- NOT a command substitution.
+            # Its result is a number spliced into the word (``kiro$((2))crew`` ->
+            # ``kiro2crew``), so it must be copied VERBATIM: collapsing it as an
+            # empty span would wrongly fuse ``kirocrew`` and manufacture a
+            # protected target the base command never had.  Checked before ``$(``
+            # because ``$((`` starts with it.
+            if not escaped and not in_single and ch == "$" and source.startswith("$((", off):
+                end = _arith_expansion_end(source, off + 3)
+                out.append(source[off:end])
+                i, state, ansi, open_word, word_started = end, step.state, step.ansi, True, True
+                jumped = True
+                break
             # ``$( … )`` command substitution -- part of the current word.
             if not escaped and not in_single and ch == "$" and source.startswith("$(", off):
                 rel, proven = _matching_close_paren(source[off + 2 :], 0)
@@ -3201,7 +3409,9 @@ def _neutralize_substitution_spans(source: str) -> str:
                 rel, proven = _matching_close_paren(source[off + 2 :], 0)
                 end = (off + 2 + rel) if proven else n
                 glued = open_word or _word_char_follows_span(source, end, n)
-                out.append("" if glued else _SUBSTITUTION_PLACEHOLDER)
+                # Over-match an UNPROVEN (unterminated) process substitution: its
+                # end is unknown, so emptying it would erase the rest of the text.
+                out.append("" if (proven and glued) else _SUBSTITUTION_PLACEHOLDER)
                 i, state, ansi, open_word = end, step.state, step.ansi, True
                 word_started = True
                 jumped = True
@@ -3259,16 +3469,26 @@ def _neutralized_span(body: str, proven: bool, glued: bool) -> str:
     (``)token`` -> ``token``, ``kiro$(x)crew`` -> ``kirocrew``), so the placeholder
     would wrongly split the word and hide the verb/name.  Output is undecidable
     statically, so this fails toward DETECTION (the floor's standing direction for
-    a runtime-empty
-    generator, as with ``kill$(:)``); a non-empty output merely over-matches a
-    weird command, never under-denies a real one.
+    a runtime-empty generator, as with ``kill$(:)``).  A non-empty generator whose
+    output a human can read (``kiro$(printf 2)crew`` -> ``kiro2crew``) is therefore
+    OVER-refused -- the safe failure -- rather than resolved: statically modelling
+    a generator's output risks guessing empty where bash emits text, which would
+    HIDE a self-kill, so this collapse never tries.
 
     A STANDALONE span (space/operator on both sides) keeps the one inert
     placeholder word, so a decoyed ``kirocrew $(x) restart`` still reads ``$(x)``
     as the leading operand -- NOT ``restart`` -- and the subcommand floor's
     hidden-lead allowance is preserved.
+
+    An UNPROVEN span (an unterminated ``$(``/`` ` ``, or one whose matcher gave up
+    at a recursion-depth budget) has NO known end, so collapsing it -- even glued
+    -- would erase every following character, dropping a protected argv suffix.
+    It therefore ALWAYS yields the inert placeholder (over-match), never the empty
+    string: a span whose extent is unknown must widen refusal, never hide a kill.
     """
-    if (proven and body.strip() == "") or glued:
+    if not proven:
+        return _SUBSTITUTION_PLACEHOLDER
+    if body.strip() == "" or glued:
         return ""
     return _SUBSTITUTION_PLACEHOLDER
 
