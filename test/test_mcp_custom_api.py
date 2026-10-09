@@ -477,11 +477,17 @@ class TestCustomUpdate:
         finally:
             await client.close()
 
-    async def test_put_modifying_stored_headers_is_refused(self, sandbox, fake_sel):
-        """Stored values are shown redacted, so an edited value cannot be
-        distinguished from a mangled marker — refuse rather than guess."""
-        raw_headers = {"Authorization": "Bearer old-secret"}
-        entry = {"url": "https://mcp.example.com/sse", "headers": raw_headers}
+    async def test_put_placeholder_keeps_value_and_new_value_replaces(
+        self, sandbox, fake_sel
+    ):
+        """A header left as the exact placeholder keeps its stored value; a
+        header given a new value is replaced, in the same save."""
+        raw_headers = {"Authorization": "Bearer old-secret", "X-Api-Key": "kept-key"}
+        entry = {
+            "url": "https://mcp.example.com/sse",
+            "headers": raw_headers,
+            "disabledTools": ["write_file"],
+        }
         sandbox.kirocrew_json.write_text(json.dumps({"mcpServers": {"remote": entry}}))
         client = await _client()
         try:
@@ -489,9 +495,74 @@ class TestCustomUpdate:
             spec = (await resp.json())["spec"]
             spec["headers"]["Authorization"] = "Bearer new-secret"
             resp = await client.put("/api/mcp/custom/remote", json={"spec": spec})
+            assert resp.status == 200
+            body = await resp.text()
+            assert "kept-key" not in body and "new-secret" not in body
+            written = _written(sandbox)["remote"]
+            assert written["headers"] == {
+                "Authorization": "Bearer new-secret",
+                "X-Api-Key": "kept-key",
+            }
+            assert written["disabledTools"] == ["write_file"]
+        finally:
+            await client.close()
+
+    @pytest.mark.parametrize(
+        ("mutate", "reason"),
+        [
+            pytest.param(
+                lambda h: h.__setitem__("Authorization", ""),
+                "'Authorization' can't be empty",
+                id="empty-value",
+            ),
+            pytest.param(
+                lambda h: h.__setitem__("Authorization", h["Authorization"] + "x"),
+                "'Authorization' mixes",
+                id="altered-placeholder",
+            ),
+            pytest.param(
+                lambda h: h.__setitem__(
+                    "Authorization", "Bearer " + h["Authorization"]
+                ),
+                "'Authorization' mixes",
+                id="placeholder-inside-value",
+            ),
+            pytest.param(
+                lambda h: h.__setitem__("X-Other", h.pop("Authorization")),
+                "Header names can't change here",
+                id="placeholder-under-another-name",
+            ),
+            pytest.param(
+                lambda h: h.pop("Authorization"),
+                "Header names can't change here",
+                id="name-removed",
+            ),
+            pytest.param(
+                lambda h: h.__setitem__("X-New", "fresh"),
+                "Header names can't change here",
+                id="name-added",
+            ),
+        ],
+    )
+    async def test_put_refuses_other_stored_header_edits(
+        self, sandbox, fake_sel, mutate, reason
+    ):
+        """Only the exact placeholder under its own name keeps a value and only
+        a new value replaces one; anything else is refused and nothing written."""
+        raw_headers = {"Authorization": "Bearer old-secret", "X-Api-Key": "kept-key"}
+        entry = {"url": "https://mcp.example.com/sse", "headers": raw_headers}
+        sandbox.kirocrew_json.write_text(json.dumps({"mcpServers": {"remote": entry}}))
+        client = await _client()
+        try:
+            resp = await client.get("/api/mcp/custom/remote")
+            spec = (await resp.json())["spec"]
+            mutate(spec["headers"])
+            resp = await client.put("/api/mcp/custom/remote", json={"spec": spec})
             assert resp.status == 400
             payload = await resp.json()
             assert payload["code"] == "stored_headers_not_editable"
+            assert reason in payload["error"]
+            assert "old-secret" not in json.dumps(payload)
             assert _written(sandbox)["remote"]["headers"] == raw_headers
         finally:
             await client.close()
