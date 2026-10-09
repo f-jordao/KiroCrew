@@ -100,6 +100,7 @@ function renderChatPage(
   slots: ChatSlot[],
   chatOverrides: Partial<RootState['chat']> = {},
   connected = false,
+  entry = '/chat',
 ) {
   const store = createTestStore({
     dashboard: {
@@ -123,7 +124,7 @@ function renderChatPage(
     <QueryClientProvider client={qc}>
       <Provider store={store}>
         <ThemeProvider>
-          <MemoryRouter initialEntries={['/chat']}>
+          <MemoryRouter initialEntries={[entry]}>
             <ChatPage mode={mode} />
           </MemoryRouter>
         </ThemeProvider>
@@ -273,5 +274,32 @@ describe('ChatPage crash-recovery reload (#12907)', () => {
     await act(async () => { store.dispatch(setActiveSlot('chat-2')) })
     await act(async () => { store.dispatch(setActiveSlot(null)) })
     await waitFor(() => expect(store.getState().chat.activeSlot).not.toBeNull())
+  })
+})
+
+// #16009: a remote-crew pane reloaded on a new port has empty storage; the hub
+// hands back the last chat as ?lastSid=.
+describe('ChatPage last-chat hint from the hub (#16009)', () => {
+  it('opens the hinted chat instead of the first one', async () => {
+    const { store } = renderChatPage(undefined, null, allSlots, {}, false, '/chat?lastSid=chat-2')
+    await waitFor(() => expect(store.getState().chat.activeSlot).toBe('chat-2'))
+  })
+
+  it('falls back quietly when the hinted chat is gone', async () => {
+    localStorage.setItem('mc-active-slot-chat', 'chat-2')
+    const { store } = renderChatPage(undefined, null, allSlots, {}, false, '/chat?lastSid=chat-gone')
+    await waitFor(() => expect(store.getState().chat.activeSlot).toBe('chat-2'))
+  })
+
+  it('tells the hub which chat the pane shows', async () => {
+    const parent = { postMessage: vi.fn() }
+    const spy = vi.spyOn(window, 'parent', 'get').mockReturnValue(parent as unknown as Window)
+    try {
+      renderChatPage(undefined, 'chat-2', allSlots)
+      await waitFor(() => expect(parent.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'mc-pane-active-slot', key: 'chat-2' }), expect.any(String)))
+    } finally {
+      spy.mockRestore()
+    }
   })
 })
