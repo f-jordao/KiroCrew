@@ -124,6 +124,42 @@ describe("gateway supervisor wiring (source pins)", () => {
     assertNoReveal(fnBody("reconnectOrRespawnAdoptedGateway"), "reconnectOrRespawnAdoptedGateway");
   });
 
+  // Regression for #18174: the "could not capture the incumbent PID" branch
+  // used to call the terminal dialog on the FIRST failed snapshot, leaving an
+  // unattended desktop with no gateway until a human relaunched. It must now
+  // retry with bounded backoff via snapshotIncumbentForRespawn and surface the
+  // terminal error only when that returns the "unverified" verdict.
+  it("reconnectOrRespawnAdoptedGateway retries PID capture before giving up", () => {
+    const body = fnBody("reconnectOrRespawnAdoptedGateway");
+    assert.match(
+      body,
+      /snapshotIncumbentForRespawn\(/,
+      "liveness recovery must retry the incumbent snapshot, not refuse on the first miss",
+    );
+    assert.match(
+      body,
+      /capture\.verdict === "unverified"[\s\S]*?showUnrecoverableGatewayError/,
+      "the terminal dialog must be gated on the exhausted-budget 'unverified' verdict",
+    );
+    // The capture must still name a PID that is handed to waitForIncumbentExit,
+    // so the lock-release guarantee ("port free is not lock free") survives.
+    assert.match(
+      body,
+      /const incumbentPids = capture\.pids[\s\S]*?waitForIncumbentExit\(incumbentPids/,
+      "the captured PID must drive waitForIncumbentExit so the lock is released before spawning",
+    );
+  });
+
+  // The adopt-time drain path (#18174, the Oct 8 occurrence) carries the exact
+  // same transient refusal and must route through the same retry helper.
+  it("the drain path retries PID capture before refusing with probe-failed", () => {
+    assert.match(
+      SUPERVISOR_JS,
+      /drainCapture = await snapshotIncumbentForRespawn\([\s\S]*?drainCapture\.verdict === "unverified"[\s\S]*?return "probe-failed"/,
+      "the drain branch must retry the snapshot, not refuse on the first miss",
+    );
+  });
+
   it("showLoadingThenConnect routes its initial reveal through the helper", () => {
     const body = fnBody("showLoadingThenConnect");
     assert.match(

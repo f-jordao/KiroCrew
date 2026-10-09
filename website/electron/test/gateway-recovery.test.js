@@ -10,6 +10,7 @@ const {
   waitForProcessExit,
   snapshotPortPids,
   incumbentSnapshotBlocksRespawn,
+  snapshotIncumbentForRespawn,
   unrecoverableGatewayDialog,
   shouldReresolveBackend,
   isStaleBundleSignal,
@@ -295,6 +296,115 @@ describe("incumbentSnapshotBlocksRespawn", () => {
   it("never blocks when the incumbent was actually captured", () => {
     for (const isWindows of [true, false]) {
       assert.equal(incumbentSnapshotBlocksRespawn({ pids: [4242], isWindows }), false);
+    }
+  });
+});
+
+// Regression for #18174: a transient PID-capture failure during an adopted
+// gateway's drain must NOT terminate recovery for good. The helper retries the
+// snapshot with bounded backoff until it NAMES the incumbent PID (so the caller
+// can wait for that process to exit and release gateway.lock before spawning);
+// only an exhausted budget surfaces the terminal dialog. "Port free" is NOT a
+// success signal — a draining gateway frees its socket while still holding the
+// lock — so the helper never short-circuits on a free port.
+describe("snapshotIncumbentForRespawn", () => {
+  // A controllable clock + instant sleep so backoff is tested without real time.
+  const clockHarness = () => {
+    let now = 0;
+    const realDateNow = Date.now;
+    Date.now = () => now;
+    const slept = [];
+    const sleep = async (ms) => { slept.push(ms); now += ms; };
+    return {
+      sleep,
+      slept,
+      advance: (ms) => { now += ms; },
+      restore: () => { Date.now = realDateNow; },
+    };
+  };
+
+  // On Windows a null snapshot is unusable; a named PID is usable.
+  const blocksRespawn = (pids) => incumbentSnapshotBlocksRespawn({ pids, isWindows: true });
+
+  it("captures on the first try without any retry when the PID is named", async () => {
+    const h = clockHarness();
+    try {
+      const result = await snapshotIncumbentForRespawn({
+        snapshot: async () => [4242],
+        blocksRespawn,
+        sleep: h.sleep,
+      });
+      assert.deepEqual(result, { verdict: "captured", pids: [4242], attempts: 1 });
+      assert.deepEqual(h.slept, [], "no backoff sleep when the first snapshot works");
+    } finally {
+      h.restore();
+    }
+  });
+
+  it("RETRIES instead of giving up, then captures once the drain names the PID", async () => {
+    const h = clockHarness();
+    try {
+      // The transient window: two blank snapshots, then the successor is named.
+      const snaps = [null, null, [777]];
+      let i = 0;
+      const result = await snapshotIncumbentForRespawn({
+        snapshot: async () => snaps[i++],
+        blocksRespawn,
+        sleep: h.sleep,
+        pollMs: 2000,
+      });
+      assert.equal(result.verdict, "captured");
+      // The named PID is returned so the caller can wait for it to exit before
+      // spawning — this is the lock-release guarantee the fix must preserve.
+      assert.deepEqual(result.pids, [777]);
+      assert.equal(result.attempts, 3);
+      assert.deepEqual(h.slept, [2000, 2000], "backed off between the blank snapshots");
+    } finally {
+      h.restore();
+    }
+  });
+
+  it("never treats a free port as success — a free socket is not a released lock", async () => {
+    const h = clockHarness();
+    try {
+      // The snapshot never names a PID across the whole budget. Even though a
+      // caller's port probe might read "free" in this window, the helper must
+      // NOT report success: spawning then would race the still-held lock.
+      let attempts = 0;
+      const result = await snapshotIncumbentForRespawn({
+        snapshot: async () => { attempts += 1; return null; },
+        blocksRespawn,
+        sleep: h.sleep,
+        budgetMs: 6_000,
+        pollMs: 2_000,
+      });
+      assert.equal(result.verdict, "unverified");
+      assert.equal(result.pids, null);
+      assert.ok(attempts > 1, "must retry across the budget, not short-circuit");
+    } finally {
+      h.restore();
+    }
+  });
+
+  it("only gives up (unverified) after the whole budget with the PID still uncaptured", async () => {
+    const h = clockHarness();
+    try {
+      let attempts = 0;
+      const result = await snapshotIncumbentForRespawn({
+        snapshot: async () => { attempts += 1; return null; },
+        blocksRespawn,
+        sleep: h.sleep,
+        budgetMs: 10_000,
+        pollMs: 2_000,
+      });
+      assert.equal(result.verdict, "unverified");
+      assert.equal(result.pids, null);
+      // Retried across the whole budget before surfacing the terminal dialog —
+      // not a one-shot refusal like the pre-#18174 code.
+      assert.ok(result.attempts > 1, "must retry, not give up on the first failure");
+      assert.ok(attempts > 1);
+    } finally {
+      h.restore();
     }
   });
 });

@@ -54,6 +54,7 @@ const {
   classifyAdoptedGateway,
   revealWindowForConnect,
   waitForServiceRebind,
+  snapshotIncumbentForRespawn,
   unrecoverableGatewayDialog,
   shouldReresolveBackend,
   isStaleBundleSignal,
@@ -1034,11 +1035,20 @@ function createGatewaySupervisor({
       if (readiness === "shutting-down") {
         glog(`gateway on :${PORT} answers but /api/ready reports shutting-down — refusing to adopt a draining gateway`);
         sendStatus("Waiting for the previous gateway to exit…");
-        const drainingPids = await snapshotGatewayPortPids(PORT);
-        if (unverifiedIncumbent(drainingPids)) {
-          glog(`drain: could not capture the incumbent PID on :${PORT} — refusing an automatic respawn that could race gateway.lock`);
+        // Same transient drain race as the liveness path (#18174): the snapshot
+        // can momentarily name no PID while the gateway sheds its socket. Retry
+        // with bounded backoff instead of refusing for good on the first miss.
+        const drainCapture = await snapshotIncumbentForRespawn({
+          snapshot: () => snapshotGatewayPortPids(PORT),
+          blocksRespawn: (pids) => unverifiedIncumbent(pids),
+          sleep: (ms) => new Promise((resolve) => setTimeoutFn(resolve, ms)),
+          log: (message) => glog(`drain: ${message}`),
+        });
+        if (drainCapture.verdict === "unverified") {
+          glog(`drain: could not capture the incumbent PID on :${PORT} after ${drainCapture.attempts} attempts — refusing an automatic respawn that could race gateway.lock`);
           return "probe-failed";
         }
+        const drainingPids = drainCapture.pids;
         if (await waitForPortFree()) {
           if (localOwner === "service") {
             // A service may be between release and manager rebind. Orphans also
@@ -2047,11 +2057,25 @@ function createGatewaySupervisor({
     if (!window || window.isDestroyed() || quitting()) return;
     glog(`liveness: adopted local gateway did not recover within ${ADOPTED_RECOVERY_WAIT_MS}ms — waiting for :${PORT} to clear, then spawning our own backend`);
     sendStatus("Waiting for the previous gateway to exit…");
-    const incumbentPids = await snapshotGatewayPortPids(PORT);
-    if (unverifiedIncumbent(incumbentPids)) {
-      glog(`liveness: could not capture the incumbent PID on :${PORT} — refusing an automatic respawn that could race gateway.lock`);
+    // The incumbent is draining: for a few seconds its listener socket is
+    // captured by neither the old owner nor a successor, so a single snapshot
+    // can name no PID. Refusing to respawn right then is correct (it would race
+    // gateway.lock) but refusing forever is #18174 — the desktop sat 11h with no
+    // gateway. Retry the snapshot with bounded backoff until it names the PID,
+    // so recovery can wait for that process to exit (releasing the lock) before
+    // spawning. Only an exhausted budget surfaces the terminal dialog.
+    const capture = await snapshotIncumbentForRespawn({
+      snapshot: () => snapshotGatewayPortPids(PORT),
+      blocksRespawn: (pids) => unverifiedIncumbent(pids),
+      sleep: (ms) => new Promise((resolve) => setTimeoutFn(resolve, ms)),
+      log: (message) => glog(`liveness: ${message}`),
+    });
+    if (!window || window.isDestroyed() || quitting()) return;
+    if (capture.verdict === "unverified") {
+      glog(`liveness: could not capture the incumbent PID on :${PORT} after ${capture.attempts} attempts — refusing an automatic respawn that could race gateway.lock`);
       return showUnrecoverableGatewayError(window, PORT, { probeFailed: true });
     }
+    const incumbentPids = capture.pids;
     if (!(await waitForPortFree())) {
       glog(`liveness: :${PORT} still held by a process we did not spawn — surfacing port-held instead of waiting forever`);
       return showUnrecoverableGatewayError(window, PORT, "held");

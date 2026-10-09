@@ -181,6 +181,74 @@ function incumbentSnapshotBlocksRespawn({ pids, isWindows = false }) {
   return pids === null && isWindows;
 }
 
+// How long recovery keeps re-trying the incumbent-PID snapshot before it gives
+// up and surfaces the terminal error. The snapshot fails only in a narrow
+// transient window — the adopted gateway is draining, so for a moment its
+// listener socket is captured by neither the old owner (releasing it) nor a
+// successor. That window is seconds, so a bounded retry resolves it without a
+// human; a budget this size costs an unattended desktop at most ~30s of extra
+// wait in the genuinely-stuck case before the same dialog it shows today.
+const INCUMBENT_CAPTURE_RETRY_MS = 30_000;
+const INCUMBENT_CAPTURE_RETRY_POLL_MS = 2_000;
+
+/**
+ * Capture the incumbent gateway's listener PID, RETRYING with bounded backoff
+ * when the first snapshot is unusable, instead of giving up for good.
+ *
+ * The "could not capture the incumbent PID" state is transient: when an adopted
+ * gateway is shutting down it releases its LISTEN socket while still holding
+ * `gateway.lock`, so a snapshot taken in that gap names no process. Refusing to
+ * respawn *right then* is correct — spawning would race the lock — but refusing
+ * *forever* is the #18174 defect: the desktop sat 11h with no gateway.
+ *
+ * The capture must name a PID: the caller then waits for THAT process to exit
+ * (`waitForIncumbentExit`) before spawning, because the kernel releases
+ * `gateway.lock` atomically on process exit. "Port free" is deliberately NOT a
+ * success signal here — a draining gateway frees its socket while it still
+ * holds the lock ("port free is not lock free"), so spawning on a free socket
+ * would race the lock and leave no gateway at all. So this retries until the
+ * snapshot NAMES a PID (verdict `"captured"`) or the budget expires (verdict
+ * `"unverified"` — the one case that still surfaces the terminal dialog,
+ * because spawning blind would race the lock).
+ *
+ * Pure/injectable so the policy is unit-testable without Electron.
+ *
+ * @param {object} o
+ * @param {() => Promise<number[]|null>} o.snapshot      capture listener PIDs now
+ * @param {(pids:number[]|null) => boolean} o.blocksRespawn  is this snapshot unusable?
+ * @param {(ms:number) => Promise<void>} o.sleep
+ * @param {number} [o.budgetMs]
+ * @param {number} [o.pollMs]
+ * @param {(message:string) => void} [o.log]
+ * @returns {Promise<{verdict:"captured"|"unverified", pids:number[]|null, attempts:number}>}
+ */
+async function snapshotIncumbentForRespawn({
+  snapshot,
+  blocksRespawn,
+  sleep,
+  budgetMs = INCUMBENT_CAPTURE_RETRY_MS,
+  pollMs = INCUMBENT_CAPTURE_RETRY_POLL_MS,
+  log = () => {},
+}) {
+  const deadline = Date.now() + budgetMs;
+  let attempts = 0;
+  for (;;) {
+    attempts += 1;
+    const pids = await snapshot();
+    if (!blocksRespawn(pids)) {
+      return { verdict: "captured", pids, attempts };
+    }
+    if (Date.now() >= deadline) {
+      return { verdict: "unverified", pids: null, attempts };
+    }
+    log(
+      `could not capture the incumbent PID yet — the gateway is still draining; `
+      + `retrying the snapshot in ${pollMs}ms (attempt ${attempts})`,
+    );
+    await sleep(pollMs);
+  }
+}
+
 /**
  * Build the terminal recovery dialog without loading Electron.
  *
@@ -369,6 +437,7 @@ module.exports = {
   waitForProcessExit,
   snapshotPortPids,
   incumbentSnapshotBlocksRespawn,
+  snapshotIncumbentForRespawn,
   unrecoverableGatewayDialog,
   SERVICE_REBIND_GRACE_MS,
   INCUMBENT_EXIT_GRACE_MS,
