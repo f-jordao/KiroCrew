@@ -444,6 +444,7 @@ def test_the_shared_state_keeps_its_identity() -> None:
 _LAZY_IMPORTS = {
     "kiro_crew": "_hist_mod _rs stt",
     "kiro_crew.agent": "rebuild_agent_config rebuild_agent_config_reporting",
+    "kiro_crew.change_card_catalog": "HOOKED_ROUTES",
     "kiro_crew.apps.bridges": "reconcile_enabled_app_resources",
     "kiro_crew.apps.dev_mode": "init_dev_mode_watcher stop_dev_mode_watcher",
     "kiro_crew.apps.event_bus": "build_broadcast_fn",
@@ -465,6 +466,7 @@ _LAZY_IMPORTS = {
         "api_monitor_restart api_monitor_slot_get api_monitor_stop api_monitor_update "
         "api_monitors_list api_session_monitor_get"
     ),
+    "kiro_crew.dashboard.handlers.change_cards": "change_card_middleware",
     "kiro_crew.dashboard.handlers.decisions": "resume_local_decision_model",
     "kiro_crew.dashboard.handlers.sandbox_doc": "register_sandbox_doc_routes",
     "kiro_crew.dashboard.handlers.updates": "apply_log_level_from_config",
@@ -509,7 +511,7 @@ def test_the_lazy_imports_stay_inside_the_functions_that_need_them() -> None:
                     for alias in node.names:
                         local.setdefault(alias.asname or alias.name, set()).add(alias.name)
     assert local == {name: {module} for name, module in expected.items()}
-    assert len(expected) == 76
+    assert len(expected) == 78
 
 
 def test_a_star_import_carries_the_moved_public_names(tmp_path: Path) -> None:
@@ -1322,6 +1324,7 @@ _DASHBOARD_CHAIN = (
     ("spa_fallback", "_install_dashboard_middlewares.<locals>."),
     ("_workflow_ready", "_register_workflow_lifecycle.<locals>."),
     ("_crewmate_prune_gate", "_register_crewmate_prune_gate.<locals>."),
+    ("_change_card_hook", "_register_change_card_hook.<locals>."),
 )
 _API_CHAIN = (
     ("route_latency_middleware", "make_route_latency_middleware.<locals>."),
@@ -1411,7 +1414,8 @@ _DASHBOARD_BOOT = tuple("""
     _deferred _deferred _deferred _deferred
     _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred
     _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred
-    _deferred _deferred
+    _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred
+    _deferred _deferred _deferred _deferred
     register_all subprocess_executor subprocess_executor subprocess_executor
     subprocess_executor subprocess_executor subprocess_executor _register_deploy_routes
     setup_knowledge_routes setup_weixin_routes setup_feedback_routes
@@ -1429,7 +1433,7 @@ _DASHBOARD_BOOT = tuple("""
     _register_stt_hooks _register_own_host_warm _register_config_watch
     _register_instances_hooks _register_browser_install_cleanup
     _register_browser_view_cleanup _register_connections_warm_lifecycle
-    _register_workflow_lifecycle _register_crewmate_prune_gate
+    _register_workflow_lifecycle _register_crewmate_prune_gate _register_change_card_hook
     _register_unix_socket_cleanup build_hardened_runner on_gateway_startup
     init_hook_reconciler async_safe_context_call current_context _arm_listener_guard
     _kick_crewmate_prune subprocess_executor _start_unix_site _resolved_bound_port
@@ -1476,7 +1480,8 @@ _API_BOOT = tuple("""
     _deferred _deferred _deferred _deferred
     _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred
     _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred
-    _deferred _deferred
+    _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred
+    _deferred _deferred _deferred _deferred
     _register_deploy_routes _register_stt_hooks _register_own_host_warm
     _register_config_watch _register_prevent_sleep_shutdown
     _register_listener_guard_shutdown _register_browser_install_cleanup
@@ -1690,8 +1695,8 @@ def _routes(app: web.Application) -> list[tuple[str, str, str]]:
 #: SHA-256 of the MCP route table's ``"<method> <path> <handler>"`` rows in
 #: registration order, and their count. The table is shared by both entrypoints, so a
 #: route added to it on purpose updates these with it.
-_MCP_TABLE_ROWS = 260
-_MCP_TABLE_DIGEST = "bf2a39f5d0d66011c6d0b1b79da037718a17f729db248edaa82c3a5797a393af"
+_MCP_TABLE_ROWS = 270
+_MCP_TABLE_DIGEST = "01b63a86d3af14cedca61936cb4e467fc8987c13c3327ce12945ec4043faa87f"
 
 
 def test_the_mcp_route_table_keeps_its_rows_and_order() -> None:

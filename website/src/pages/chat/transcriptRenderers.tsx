@@ -387,7 +387,7 @@ export function createTranscriptRenderers(
       },
     },
     {
-      // a guide offer, at the point it was proposed. The
+      // Mate's change card or guide offer, at the point it was proposed. The
       // row holds a reference; the live card is the card / guide store's, so it
       // updates in place (cards/ConversationCard). The SDK default draws nothing
       // for this role, which is right for a store-free surface.

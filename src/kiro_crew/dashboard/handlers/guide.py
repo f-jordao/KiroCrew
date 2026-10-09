@@ -137,7 +137,7 @@ async def _json_body(request: web.Request) -> dict[str, Any]:
 #: see, on their word: only a turn they sent may. ``member.rename_self`` is a
 #: crewmate taking the name the user gave it, so a wake or the hidden welcome
 #: kickoff cannot pick one.
-_USER_TURN_OPERATIONS = frozenset({"guide.start", "member.rename_self"})
+_USER_TURN_OPERATIONS = frozenset({"guide.start", "cards.propose", "member.rename_self"})
 
 
 def _resolve_agent_caller(request: web.Request, operation: str) -> tuple[str, str]:
@@ -149,9 +149,10 @@ def _resolve_agent_caller(request: web.Request, operation: str) -> tuple[str, st
     proves nothing about who is asking; the turn's own opener provenance
     (``_turn_channel_origin``) and any channel steer admitted into it
     (``_turn_channel_narrowed``) are what the gateway recorded when the turn
-    started. An operation that puts something in front of the person (a guide)
-    or renames the calling crewmate (:data:`_USER_TURN_OPERATIONS`) also needs
-    the turn to be one the person sent (``_turn_user_sent``): a loop wake, a cron or app
+    started. An operation that puts something in front of the person (a guide
+    or a change card) or renames the calling crewmate
+    (:data:`_USER_TURN_OPERATIONS`) also needs the turn to be
+    one the person sent (``_turn_user_sent``): a loop wake, a cron or app
     injection, a ``session_send`` and a sub-agent completion are refused with
     403 ``not_user_turn``.
     """
