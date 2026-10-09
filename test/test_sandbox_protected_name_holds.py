@@ -321,7 +321,17 @@ class TestLeafOnlyPopulationIsRecorded:
     #: launch fingerprints; ``mcp/resolved`` holds executables substituted for an
     #: approved launch. Each sits beside writable siblings, so no parent stand-in
     #: can hold it.
-    EXPECTED: dict[str, int] = {"standard": 265, "cc": 272, "strict": 273}
+    #:
+    #: One more root-level directory, three more entries per tier:
+    #:
+    #: * ``ssh-auth-sock-consent-pending`` -- the single-use nonce an owner arms
+    #:   before ``kirocrew ssh-agent approve`` records the ssh-agent forward
+    #:   consent. The same shape and the same reason as
+    #:   ``file-delivery-consent-pending``: it sits at the data-home root, masked,
+    #:   rather than under the sandbox read-write ``trust/``, where a
+    #:   runtime-built path could forge a nonce and an agent-driven browser could
+    #:   then complete the owner's step-up with no human present.
+    EXPECTED: dict[str, int] = {"standard": 268, "cc": 275, "strict": 276}
 
     @pytest.mark.parametrize("tier", TIERS)
     def test_leaf_only_count_has_not_grown(self, tier: str) -> None:

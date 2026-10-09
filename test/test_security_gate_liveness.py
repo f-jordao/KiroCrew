@@ -198,7 +198,14 @@ def _url_payload_command(n: int) -> str:
 #: Raised again, from 28,572, for ``StreamRedactor``'s two read-only properties,
 #: ``held`` and ``discarding``, which the Slack stream reads at a ``wait`` instead
 #: of the private fields. No pattern moved.
-_PACKAGE_LINE_BUDGET = 28_582
+#:
+#: Raised again, from 28,582, for the ``self-protection-ssh-agent`` floor: the
+#: ``kirocrew ssh-agent approve`` step-up verb joins the three sibling
+#: self-protection floors (``_is_self_ssh_agent`` in ``argv_floor``, its verb set
+#: in ``vocabulary``, its id in the floor loop, exports and rule catalogue) plus
+#: the ``ssh-auth-sock-consent-pending`` keystone leaf in ``paths``. One floor of
+#: an existing shape; no matcher widened, no threshold moved.
+_PACKAGE_LINE_BUDGET = 28_621
 
 #: Ceiling on any ONE file in the package. This is what the bound is really for --
 #: a package total says nothing about a single file growing back into a second
