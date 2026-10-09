@@ -238,6 +238,11 @@ async function open({ reset = false, running = false, messages, boundaryMs = BOU
  *  nothing here reaches the row by a route the UI does not offer. */
 async function openProfileRow(page) {
   await page.getByTestId('member-identity-pill').click()
+  // The card may open on another tab (Sessions, for a crewmate it has not
+  // chatted with yet), so pick Profile the way a user would.
+  const tabs = page.getByTestId('crew-profile-tabs')
+  await tabs.waitFor({ state: 'visible', timeout: 15000 })
+  await tabs.getByRole('tab', { name: /profile/i }).click()
   const row = page.getByTestId('crew-profile-new-conversation')
   await row.waitFor({ state: 'visible', timeout: 15000 })
   await page.waitForTimeout(450)
@@ -490,6 +495,9 @@ if (process.env.RECORD_VIDEO === '1') {
   // Closing the card moves the one notice above the thread: one state, one
   // copy, mounted wherever the reader is looking.
   await page.getByTestId('crew-profile-close').click()
+  // The card animates out, so its copy is still in the DOM for a moment. Wait
+  // for the card to be gone before reading the one notice left.
+  await page.getByTestId('crew-profile-panel').waitFor({ state: 'detached', timeout: 10000 })
   await notice.waitFor({ state: 'visible', timeout: 10000 })
   await page.waitForTimeout(400)
   check('the refusal follows the reader out of the card, above the thread', await notice.isVisible())
