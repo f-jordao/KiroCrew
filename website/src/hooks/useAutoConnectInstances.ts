@@ -98,6 +98,8 @@ export function selectAutoConnectTargets(
   for (const inst of instances) {
     if (out.length >= budget) break
     if (excluded.has(inst.id)) continue
+    // Turned off by the owner: the gateway would refuse it anyway.
+    if (inst.disabled) continue
     // No pane to warm: a fargate crew's connect is a real SSM session that
     // would only be spent on a card nobody asked to open.
     if (!hasDashboardPane(inst)) continue

@@ -87,6 +87,13 @@ describe('selectAutoConnectTargets', () => {
   })
 })
 
+describe('selectAutoConnectTargets with a disabled crew', () => {
+  it('never targets a crew the owner turned off', () => {
+    const list = [{ ...inst('a', 'disconnected'), disabled: true }, inst('b', 'disconnected')]
+    expect(selectAutoConnectTargets(list, {}, new Set(), 5)).toEqual(['b'])
+  })
+})
+
 describe('autoConnectEnabled', () => {
   beforeEach(() => localStorage.clear())
 
