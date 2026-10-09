@@ -12056,7 +12056,9 @@
       "archived_count_many": "{{count}} archiviate",
       "archived_count_one": "{{count}} archiviata",
       "archived_count_other": "{{count}} archiviate",
-      "waiting_for_memory": "In attesa di RAM libera"
+      "waiting_for_memory": "In attesa di RAM libera",
+      "conductor_chat": "Chat",
+      "open_conductor_chat": "Apri la chat della sessione che guida {{name}}"
     },
     "connectionsPage": {
       "action_failed": "Azione non riuscita: {{error}}",
@@ -12671,7 +12673,9 @@
         "decisions_runtime_error": "Impossibile avviare il modello.",
         "decisions_runtime_retry": "Riprova",
         "dashboard": "Dashboard dinamica",
-        "dashboard_desc": "Attiva la dashboard dinamica, ancora in sviluppo: una riga di stato sopra il compositore della chat, una vista Dashboard nel pannello laterale e nella pagina di un membro dell’equipaggio, e una pagina Tutte le dashboard. Il layout è ancora in fase di progettazione, quindi non viene mostrata finché non la attivi. Contiene anche l’interruttore delle schede automatiche."
+        "dashboard_desc": "Attiva la dashboard dinamica, ancora in sviluppo: una riga di stato sopra il compositore della chat, una vista Dashboard nel pannello laterale e nella pagina di un membro dell’equipaggio, e una pagina Tutte le dashboard. Il layout è ancora in fase di progettazione, quindi non viene mostrata finché non la attivi. Contiene anche l’interruttore delle schede automatiche.",
+        "folder_conductor": "La cartella è la sessione che guida",
+        "folder_conductor_desc": "In una cartella le cui sessioni sono state aperte tutte da una di esse, quella sessione diventa la riga della cartella: la cartella resta una riga sola, porta il numero di sessioni di oggi e i segni di quelle che ti aspettano e di quelle in corso, e mostra il suo stato sotto il nome. Passando sulla riga compare Chat, che apre quella conversazione, e le sessioni che ha aperto sono disegnate dentro, una riga ciascuna. Una cartella senza una sessione così non cambia. È ancora in progettazione, quindi è spenta finché non la accendi."
       },
       "kiroSignInCard": {
         "title": "Accesso a Kiro",

@@ -12056,7 +12056,9 @@
       "archived_count_many": "{{count}} archivées",
       "archived_count_one": "{{count}} archivée",
       "archived_count_other": "{{count}} archivées",
-      "waiting_for_memory": "En attente de RAM libre"
+      "waiting_for_memory": "En attente de RAM libre",
+      "conductor_chat": "Chat",
+      "open_conductor_chat": "Ouvrir le chat de la session qui dirige {{name}}"
     },
     "connectionsPage": {
       "action_failed": "Échec de l’action : {{error}}",
@@ -12671,7 +12673,9 @@
         "decisions_runtime_error": "Impossible de démarrer le modèle.",
         "decisions_runtime_retry": "Réessayer",
         "dashboard": "Tableau de bord dynamique",
-        "dashboard_desc": "Active le tableau de bord dynamique, encore en développement : une ligne d’état au-dessus du champ de saisie du chat, une vue Tableau de bord dans le panneau latéral et sur la page d’un coéquipier, et une page Tous les tableaux de bord. Sa mise en page est encore en cours de conception, il n’apparaît donc que si tu l’actives. Contient aussi l’interrupteur des cartes automatiques."
+        "dashboard_desc": "Active le tableau de bord dynamique, encore en développement : une ligne d’état au-dessus du champ de saisie du chat, une vue Tableau de bord dans le panneau latéral et sur la page d’un coéquipier, et une page Tous les tableaux de bord. Sa mise en page est encore en cours de conception, il n’apparaît donc que si tu l’actives. Contient aussi l’interrupteur des cartes automatiques.",
+        "folder_conductor": "Le dossier est la session qui dirige",
+        "folder_conductor_desc": "Dans un dossier dont toutes les sessions ont été ouvertes par l'une d'elles, cette session devient la ligne du dossier : le dossier garde une seule ligne, porte le nombre de sessions du jour et les marques de celles qui t'attendent et de celles qui tournent, et affiche son état sous le nom. Survoler la ligne fait apparaître Chat, qui ouvre cette conversation, et les sessions qu'elle a ouvertes sont dessinées à l'intérieur, une ligne chacune. Un dossier sans une telle session ne change pas. C'est encore en conception, donc c'est éteint jusqu'à ce que tu l'allumes."
       },
       "kiroSignInCard": {
         "title": "Connexion Kiro",

@@ -161,6 +161,24 @@ export const PREVIEW_LAYOUT_HARNESS = `${PREVIEW_FLAG_PREFIX}layout-harness`
 export const PREVIEW_DASHBOARD = `${PREVIEW_FLAG_PREFIX}dashboard`
 
 /**
+ * Folder is the conductor: a sidebar folder whose sessions were opened by one of
+ * them draws that session AS the folder row, instead of as one more card inside it.
+ *
+ * Gates a surface INSIDE `ChatSidebar`, like {@link PREVIEW_INSTANCE_SESSIONS} —
+ * so it is also the thing that keeps the detection off the render path for anyone
+ * who has not opted in. Read it in the sidebar and skip the derivation, rather
+ * than deriving and then not using it.
+ *
+ * Default OFF, and the OFF path is the point rather than a formality: tens of
+ * thousands of people already read this list, and the conducted folder moves a
+ * session's card into a one-line row under its folder. Whether that reads better
+ * is exactly what this flag is for finding out, so the unflagged sidebar renders
+ * byte-identically to the one before this feature existed and
+ * `ChatSidebar.folderConductor.test.tsx` holds it to that.
+ */
+export const PREVIEW_FOLDER_CONDUCTOR = `${PREVIEW_FLAG_PREFIX}folder-conductor`
+
+/**
  * Read a preview flag. Absent, unparseable, or storage-denied all mean OFF —
  * the whole point of the gate is that a surface stays hidden unless someone
  * deliberately turned it on, so it fails closed.

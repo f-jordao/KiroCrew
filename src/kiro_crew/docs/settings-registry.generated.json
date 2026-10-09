@@ -1012,6 +1012,13 @@
       "description": "Earlier messages of yours and of the agent go with the question, newest first, up to this many characters. Tool output is never sent. Zero sends the message on its own, which is what the main Jev switch was agreed for, so a larger number sends more off the machine."
     },
     {
+      "id": "developer.folder-is-the-conductor",
+      "label": "Folder is the conductor",
+      "tab": "developer",
+      "route": "/settings/developer?highlight=developer.folder-is-the-conductor",
+      "description": "In a folder whose sessions were all opened by one of them, that session becomes the folder row itself: the folder keeps one row, carries today's session count, waiting-on-you and running badges, and shows its status under the name. Hovering the row offers Chat, which opens that conversation, and the sessions it opened are drawn inside as single lines. A folder with no such session is unchanged. Still being designed, so it is off until you turn it on."
+    },
+    {
       "id": "developer.jev-api-key",
       "label": "Jev API key",
       "tab": "developer",

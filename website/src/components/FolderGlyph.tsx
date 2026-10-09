@@ -1,3 +1,4 @@
+import type React from 'react'
 import { ChevronRight, Folder, FolderOpen } from 'lucide-react'
 import { folderColorStroke, folderColorWash, folderDisclosureNotch } from './folderColorPaint'
 
@@ -29,7 +30,7 @@ const _FOLDER_GLYPH_CLASS = 'shrink-0 text-muted/70 group-hover:text-muted trans
  *  collapse context (modal preview, menus, drag ghost) omit `open` and get
  *  the bare glyph.
  *  Shared by the sidebar rows and the folder-settings modal's live preview. */
-export default function FolderGlyph({ color, icon, size = 20, open, className = _FOLDER_GLYPH_CLASS, testId }: { color?: string; icon?: string; size?: number; open?: boolean; className?: string; testId?: string }) {
+export default function FolderGlyph({ color, icon, size = 20, open, className = _FOLDER_GLYPH_CLASS, testId, mark }: { color?: string; icon?: string; size?: number; open?: boolean; className?: string; testId?: string; mark?: React.ReactNode }) {
   const Icon = open ? FolderOpen : Folder
   const hasDisclosure = open !== undefined
   const notch = folderDisclosureNotch(size)
@@ -47,6 +48,22 @@ export default function FolderGlyph({ color, icon, size = 20, open, className = 
   // emoji). A mask, not a backing disc in the row colour: the row repaints on
   // hover, when pinned and per theme, and a mask is right on all of them.
   const notchMask = hasDisclosure ? { maskImage: notch.maskImage, WebkitMaskImage: notch.maskImage } : undefined
+  // A caller-supplied MARK takes the shape's place, and takes it through this
+  // component rather than beside it: the box width, the notch mask and the
+  // disclosure chevron are the geometry the folder-alignment guides pin
+  // (ChatSidebar.folderAlignment.test.tsx measures off this box), so a caller
+  // drawing its own 12px span would be a second copy of all three — free to
+  // drift by the 2-3px those guides have already been missed by. The sidebar's
+  // conducted folder row passes the loop mark here for exactly that reason.
+  // Outranks `icon`: a mark is the row's STATE, a folder emoji is its decoration.
+  if (mark !== undefined && mark !== null) {
+    return (
+      <span data-testid={testId} aria-hidden className={`relative inline-flex items-center justify-center ${className}`} style={{ width: size, height: size }}>
+        <span data-testid={testId ? `${testId}-shape` : undefined} className="inline-flex items-center justify-center" style={{ width: size, height: size, ...notchMask }}>{mark}</span>
+        {disclosure}
+      </span>
+    )
+  }
   // A data guard, not defensive noise: folders.json is a hand-editable file on
   // disk, so `icon` is boundary input here even though every server write path
   // coerces it to a string. A non-string value (`{}`, `1`, `["🚀"]`) rendered

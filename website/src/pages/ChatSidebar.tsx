@@ -15,7 +15,7 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { usePreviewFlag } from '../hooks/usePreviewFlag'
-import { PREVIEW_DASHBOARD } from '../utils/previewFlags'
+import { PREVIEW_DASHBOARD, PREVIEW_FOLDER_CONDUCTOR } from '../utils/previewFlags'
 import { shallowEqual, useStore } from 'react-redux'
 import { useAppDispatch, useAppSelector } from '../store'
 import type { RootState } from '../store'
@@ -124,6 +124,7 @@ import { useSidebarTags } from './chat-sidebar/tags'
 import { useBoardColumns, useColumnPopover, useBoardColumnMutations, useColumnMatches, useBoardFolderCollapse } from './chat-sidebar/board'
 import { useHoverHold, useHoverPinLiveness } from './chat-sidebar/hoverHold'
 import { useLineageAvailable, useConductorLane, citedCreatorOf } from './chat-sidebar/conductor'
+import { detectFolderConductor, rollupFolderConductor, type FolderConductor, type FolderConductorRollup } from './chat-sidebar/folderConductor'
 import { useShortcutOrder } from './chat-sidebar/shortcuts'
 import { useFolderDropOps, useSidebarMoveUndo, useSidebarDragHandlers, useNativeSessionDrag } from './chat-sidebar/dnd/useSidebarDrag'
 import { useSidebarReveal } from './chat-sidebar/reveal'
@@ -893,6 +894,105 @@ function ExecutorCrewChip({ instanceId }: { instanceId: string }) {
       label={i18nT('pages.chatSidebar.on_instance', { name })}
       title={i18nT('pages.chatSidebar.runs_on_crew', { name })}
     />
+  )
+}
+
+/**
+ * The status line a CONDUCTED folder row carries under its name, or nothing.
+ *
+ * Its own component for one reason: the loop's cycle numbers live in slot-scoped
+ * store state, and reading them in the sidebar shell would repaint every folder
+ * and every row on each cycle tick. Subscribed here, a tick repaints this one line.
+ *
+ * It says exactly what the conductor's own session card says, in the card's own
+ * two class strings (`ROW_STATUS_LINE_ACCENT_CLS` / `_MUTED_CLS`) and with the
+ * card's own catalog keys. Reusing both is the point rather than a shortcut: the
+ * folder row is standing IN for that card, so a second spelling of "Needs your
+ * answer" or a second "Loop 5/20" would be the same fact in two voices.
+ *
+ * Nothing to say is nothing rendered. A conductor sitting idle with no loop armed
+ * is the common case, and a line reading "idle" would spend a row on it.
+ */
+function FolderConductorStatusLine({ slotKey, wantsUser }: { slotKey: string; wantsUser: boolean }) {
+  const automation = useAppSelector(st => selectAutomationForSlot(st, slotKey))
+  const loop = automation?.kind === 'legacy_goal_loop' && automation.active ? automation : null
+  // The ask outranks the loop, as it does on the card: a looping conductor that
+  // is parked on a question is waiting on the user, not working.
+  if (wantsUser) {
+    const label = i18nT('pages.chatSidebar.needs_your_answer')
+    return (
+      <div className={ROW_STATUS_LINE_ACCENT_CLS} title={label} data-testid={`folder-conductor-status-${slotKey}`}>
+        <Goal size={ROW_ICON_PX} className="shrink-0" aria-hidden />
+        <span className="truncate font-medium">{label}</span>
+      </div>
+    )
+  }
+  if (loop == null) return null
+  // `maxCycles === 0` is unlimited (autonudge.py's NudgeLoop default), so there
+  // is no denominator to print — the same split the session card makes.
+  const label = loop.maxCycles > 0
+    ? i18nT('pages.chatSidebar.loop', { count: loop.cycleCount, total: loop.maxCycles })
+    : i18nT('pages.chatSidebar.loop_2', { count: loop.cycleCount })
+  return (
+    <div className={ROW_STATUS_LINE_MUTED_CLS} title={label} data-testid={`folder-conductor-status-${slotKey}`}>
+      <Goal size={ROW_ICON_PX} className="shrink-0" aria-hidden />
+      <span className="truncate">{label}</span>
+    </div>
+  )
+}
+
+/**
+ * One of a conductor's workers, as a single line: status dot, title, time.
+ *
+ * Deliberately NOT a session card. A conducted folder's point is that the run is
+ * readable in one glance, and a card per worker is what made that impossible — six
+ * workers cost six three-line cards, so the folder above them scrolled away. The
+ * row keeps the two things a reader needs from a worker they are not acting on
+ * (what it is, when it last moved) and the one action they take on it (open it).
+ *
+ * The dot reads the SAME predicates the session card's own marker does, handed in
+ * by the caller, so a worker's dot here and its dot in the flat lane cannot
+ * disagree.
+ */
+function FolderConductorWorkerRow({ slot, state, isActive, onOpen }: {
+  slot: Slot
+  state: { wantsUser: boolean; running: boolean; unread: boolean }
+  isActive: boolean
+  onOpen: () => void
+}) {
+  const ts = slotActivityTs(slot)
+  // `|| slot.key`, the sidebar's own fallback for an untitled session — never a
+  // translated "Untitled", which would read as the session's name.
+  const title = slot.title || slot.key
+  // Colour is the status, and the status is named in the dot's accessible label
+  // rather than left to the colour alone — a tint is invisible to a screen reader
+  // and gone in a high-contrast theme.
+  const dot = state.wantsUser
+    ? { color: 'var(--accent)', label: i18nT('pages.chatSidebar.needs_your_answer'), pulse: false }
+    : state.running
+      ? { color: 'var(--info)', label: i18nT('pages.chatSidebar.filter_running'), pulse: true }
+      : state.unread
+        ? { color: 'var(--ok)', label: i18nT('pages.chatSidebar.agent_finished_your_turn'), pulse: false }
+        : null
+  return (
+    <button
+      type="button"
+      data-folder-conductor-worker={slot.key}
+      data-testid={`folder-conductor-worker-${slot.key}`}
+      onClick={onOpen}
+      title={title}
+      className={`session-row w-full flex items-center gap-2 pr-2.5 py-1 rounded-md bg-transparent border-none cursor-pointer text-left transition-colors${isActive ? ' bg-accent-subtle text-text' : ' text-muted hover:text-text hover:bg-bg-hover'}`}>
+      {dot
+        ? <span className={`w-1.5 h-1.5 rounded-full shrink-0${dot.pulse ? ' animate-pulse' : ''}`} style={{ background: dot.color }}
+          role="img" aria-label={dot.label} title={dot.label} />
+        // A worker with nothing to report still needs the dot's BOX, or its title
+        // would sit 1.5px left of every sibling's and the column would wobble.
+        : <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-text/20" aria-hidden />}
+      <span className="flex-1 min-w-0 truncate text-[12px]">{title}</span>
+      {ts !== undefined && ts !== '' && (
+        <span className="text-[11px] text-muted tabular-nums shrink-0">{fmtRelativeTime(ts)}</span>
+      )}
+    </button>
   )
 }
 
@@ -2881,6 +2981,38 @@ function ChatSidebar({
 
   const { hoverPinRef, heldDisplacedRef, releaseHoverPin, heldLane, onRootPointerOver } = useHoverHold()
 
+  // ── Folder is the conductor (preview) ────────────────────────────────────
+  // Per-device, DEFAULT OFF (`utils/previewFlags.ts`). While it is off nothing
+  // below runs and `folderConductors` stays null, which every read site treats
+  // as "this folder has no conductor" — the same branch an ordinary folder takes.
+  // That is what makes the unflagged sidebar identical to the one before this
+  // feature, rather than identical-looking.
+  const folderConductorPreview = usePreviewFlag(PREVIEW_FOLDER_CONDUCTOR)
+  /** Does this row want the user? The same predicate the conductor lane's
+   *  aggregate uses, so a folder badge and a row's own marker cannot disagree. */
+  const folderRowWantsUser = (s: Slot) => !!(
+    s.pending_approval
+    || s.needs_input
+    || (subagentApprovalCounts[s.key] || 0) > 0
+    || (unreadSet.has(s.key) && !sidebarRows.isRunning(s))
+  )
+  // Rebuilt per render rather than memoized: `sidebarRows` is a fresh object each
+  // render, so a memo keyed on it would recompute anyway and only add a cache to
+  // read. The derivation is one pass over each folder's own rows.
+  const folderConductors: Map<string, FolderConductor> | null = folderConductorPreview
+    ? (() => {
+      const out = new Map<string, FolderConductor>()
+      for (const f of folders) {
+        const found = detectFolderConductor(sidebarRows.folderTree.rowsIn(f.id))
+        if (found) out.set(f.id, found)
+      }
+      return out
+    })()
+    : null
+  /** This folder's conductor, or null. The ONE read site for the whole feature. */
+  const folderConductorOf = (folderId: string): FolderConductor | null =>
+    folderConductors?.get(folderId) ?? null
+
   const { lineageAvailable } = useLineageAvailable({ allRows })
   // Which lane the sidebar is actually rendering (see `renderedLane`). The tag-column
   // board wins when columns exist — flat view does not replace it, it applies INSIDE
@@ -3714,6 +3846,27 @@ function ChatSidebar({
     const emptyRow = emptyBody
     // `button` when the row toggles something, a plain `span` when it does not.
     const HeaderShell = (emptyRow ? 'span' : 'button') as 'button'
+    // Null unless the preview flag is on AND this folder's own sessions resolve a
+    // conductor, so every branch below is the ordinary folder's branch by default.
+    const conductor = folderConductorOf(folder.id)
+    const conductorSlot = conductor
+      ? childSlots.find(s => s.key === conductor.conductorKey) ?? null
+      : null
+    // The whole SUBTREE, because this row is the only row on screen while the
+    // folder is collapsed: a needs-you two sub-folders down has nowhere else to
+    // appear. `drawableChildFolders` again, so the numbers describe folders this
+    // lane would actually draw.
+    const conductorRollup: FolderConductorRollup | null = conductorSlot
+      ? rollupFolderConductor(folder.id, {
+        rowsIn: (id: string) => sidebarRows.folderTree.rowsIn(id),
+        childFolderIds: (id: string) => {
+          const self = folders.find(f => f.id === id)
+          return self ? drawableChildFolders(self).map(f => f.id) : []
+        },
+        wantsUser: folderRowWantsUser,
+        isRunning: sidebarRows.isRunning,
+      })
+      : null
     const hasUnread = folderTreeHasUnread(folder.id)
     const draggable = !!dragHandleProps && editingId !== folder.id
     // Valid "Move folder to" destinations: everything outside this folder's
@@ -3864,8 +4017,15 @@ function ChatSidebar({
                *  binding the glyph to that alone would draw the closed shape on an
                *  inert row - this product's "click to expand" affordance on a row
                *  that cannot expand. An inert row is always drawn open. */}
+              {/* The icon SLOT is what changes on a conducted folder, not the row:
+               *  same box, same disclosure chevron, same alignment geometry (the
+               *  `mark` prop is why — see FolderGlyph), with the loop mark the
+               *  session cards already use for a conductor's goal loop in place of
+               *  the folder shape. One row either way, so turning the preview on
+               *  moves nothing on screen except what this 12px box draws. */}
               <FolderGlyph color={folder.color} icon={folder.icon} size={12} open={!collapsed || emptyRow}
                 className={emptyRow ? 'shrink-0 text-muted/40 transition-colors' : undefined}
+                mark={conductorSlot ? <Goal size={12} strokeWidth={2} className="text-accent" /> : undefined}
                 testId={`folder-collapse-${folder.id}`} />
               {/* Double-click rename is a mouse-only power shortcut; the accessible
                *  path is the ⋯-menu Rename item, so scope-disable the interaction rule. */}
@@ -3911,7 +4071,33 @@ function ChatSidebar({
                   aria-label={i18nT('pages.chatSidebar.agent_finished_your_turn')}
                   title={i18nT('pages.chatSidebar.agent_finished_your_turn')} />
               )}
-              <span className="text-[11px] text-muted tabular-nums shrink-0">{count}</span>
+              {/* A conducted row counts SESSIONS in its subtree where an ordinary
+               *  row counts its own direct children. The two answer different
+               *  questions and the conducted one is the question the row now
+               *  stands for: it is the conductor, so "how big is this run" is what
+               *  its number means. An ordinary folder keeps `count` untouched. */}
+              <span className="text-[11px] text-muted tabular-nums shrink-0">{conductorRollup ? conductorRollup.sessions : count}</span>
+              {/* Each badge carries the SAME glyph the sessions it stands for wear
+               *  on their own rows, so the two read as one fact at two zoom levels
+               *  — the conductor lane's aggregate cluster, in the folder row. Tint
+               *  alone is invisible to a colour-blind reader and gone in a
+               *  high-contrast theme. Hidden at zero rather than drawn as "0". */}
+              {conductorRollup != null && conductorRollup.needsYou > 0 && (
+                <span className="inline-flex items-center gap-0.5 px-1 rounded bg-accent-subtle text-accent tabular-nums shrink-0"
+                  title={i18nT('pages.chatSidebar.needs_your_answer')}
+                  data-testid={`folder-conductor-needs-you-${folder.id}`}>
+                  <MessageCircleQuestionMark size={10} className="lucide-inline shrink-0" aria-hidden />
+                  {conductorRollup.needsYou}
+                </span>
+              )}
+              {conductorRollup != null && conductorRollup.running > 0 && (
+                <span className="inline-flex items-center gap-0.5 px-1 rounded bg-bg-hover text-muted tabular-nums shrink-0"
+                  title={i18nT('pages.chatSidebar.running_session', { count: conductorRollup.running })}
+                  data-testid={`folder-conductor-running-${folder.id}`}>
+                  <Loader2 size={10} className="lucide-inline shrink-0 animate-spin" aria-hidden />
+                  {conductorRollup.running}
+                </span>
+              )}
             </HeaderShell>
             {folder.default_agent && <span className="text-[10px] text-accent bg-accent/10 px-1.5 py-0.5 rounded-full shrink-0 truncate max-w-[60px]" title={i18nT('pages.chatSidebar.default_agent', { name: folder.default_agent })}>{folder.default_agent}</span>}
           </>
@@ -3925,6 +4111,24 @@ function ChatSidebar({
           *  row and the two-buttons-per-row cap is untouched. */}
         {!(editingId === folder.id && editScope === 'list') && (
         <div className={`transition-all flex items-center gap-0.5 rounded-md group-focus-within:opacity-100 focus-within:opacity-100 has-[[data-state=open]]:opacity-100${emptyRow ? ' shrink-0 -my-1' : ' absolute top-1/2 -translate-y-1/2 right-1.5 p-1 bg-card border border-border shadow-sm opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 [@media(hover:none)]:static [@media(hover:none)]:translate-y-0 [@media(hover:none)]:shrink-0 [@media(hover:none)]:-my-1 [@media(hover:none)]:p-0 [@media(hover:none)]:bg-transparent [@media(hover:none)]:border-transparent [@media(hover:none)]:shadow-none'}`}>
+          {/* The conductor's own chat, reachable WITHOUT a card of its own — the
+           *  trade the conducted row makes. It sits first in the cluster and is
+           *  the only labelled control here, because it is the one action the row
+           *  gained and the two beside it are the ones every folder row has.
+           *  Clicking the folder NAME still expands and collapses, exactly as it
+           *  does today: this is a sibling button, so the gestures do not compete. */}
+          {conductorSlot && (
+            <button type="button" data-testid={`folder-conductor-chat-${folder.id}`}
+              className="cursor-pointer flex items-center gap-1 px-1.5 py-[3px] rounded text-[11px] font-medium text-accent hover:bg-accent-subtle transition-all bg-transparent border-none"
+              title={i18nT('pages.chatSidebar.open_conductor_chat', { name: folder.name })}
+              aria-label={i18nT('pages.chatSidebar.open_conductor_chat', { name: folder.name })}
+              onMouseDown={e => { e.stopPropagation() }}
+              onClick={e => {
+                e.stopPropagation()
+                dispatch(switchSlot({ key: conductorSlot.key, announceOnMissing: true }))
+                onSelectSlot?.(conductorSlot.key)
+              }}><MessageSquare size={11} className="shrink-0" aria-hidden />{i18nT('pages.chatSidebar.conductor_chat')}</button>
+          )}
           {/* ⋯ menu first, then the primary "new chat" action.  Sibling
            *  <button>s of the collapse toggle (valid ARIA — no nesting). */}
           <DropdownMenu>
@@ -4042,22 +4246,70 @@ function ChatSidebar({
     // Stale rows are collapsed into their own section and are stale precisely
     // because nothing is bumping them, so only the live list needs the hold.
     const { rows: freshChildSlots, navScope: treeChildScope, container: treeChildContainer } = heldLane(freshChildSlotsRaw, 'list', `tree:folder:${folder.id}`)
-    freshChildSlots.forEach((s, i) => {
+    // Conducted folder (preview flag; null for every folder otherwise, and for
+    // every folder at all while the flag is off). Two rows change inside the body:
+    // the conductor's own card is gone, because the FOLDER ROW is now that card
+    // and drawing both would be the same session twice; and each of its workers
+    // becomes one line instead of a three-line card, which is the height this
+    // whole direction is trying to win back. Any other session filed here —
+    // including one the conductor never opened — keeps its ordinary card, so
+    // nothing can go missing on someone who turns the preview on.
+    const bodyConductor = folderConductorOf(folder.id)
+    const bodyWorkers = bodyConductor ? new Set(bodyConductor.workerKeys) : null
+    // Read off the conductor's own row, so the status line says what that
+    // session's card would have said rather than what the folder rolls up.
+    const conductorWantsUser = bodyConductor
+      ? (() => {
+        const self = childSlots.find(s => s.key === bodyConductor.conductorKey)
+        return self ? folderRowWantsUser(self) : false
+      })()
+      : false
+    const drawnChildSlots = bodyConductor
+      ? freshChildSlots.filter(s => s.key !== bodyConductor.conductorKey)
+      : freshChildSlots
+    drawnChildSlots.forEach((s, i) => {
+      if (bodyWorkers?.has(s.key)) {
+        childNodes.push(
+          <FolderConductorWorkerRow
+            key={`folder-conductor-worker-${s.key}`}
+            slot={s}
+            state={{
+              wantsUser: folderRowWantsUser(s),
+              running: sidebarRows.isRunning(s),
+              unread: unreadSet.has(s.key),
+            }}
+            isActive={isActiveRow(s)}
+            onOpen={() => {
+              dispatch(switchSlot({ key: s.key, announceOnMissing: true }))
+              onSelectSlot?.(s.key)
+            }} />
+        )
+        return
+      }
       const isActive = isActiveRow(s)
-      const nextIsActive = isActiveRow(freshChildSlots[i + 1])
-      const showDivider = i < freshChildSlots.length - 1 && !isActive && !nextIsActive
-        && !startsAutomaticSection(freshChildSlots, i + 1)
-      if (startsAutomaticSection(freshChildSlots, i)) {
+      const nextIsActive = isActiveRow(drawnChildSlots[i + 1])
+      const showDivider = i < drawnChildSlots.length - 1 && !isActive && !nextIsActive
+        && !startsAutomaticSection(drawnChildSlots, i + 1)
+      if (startsAutomaticSection(drawnChildSlots, i)) {
         childNodes.push(<PinnedSessionDivider key={`pinned-divider-${folder.id}`} />)
       }
       childNodes.push(renderSessionRow(s, depth + 1, showDivider, treeChildScope, treeChildScope, treeChildContainer))
     })
     if (!searchRanked && staleExpanded.has(folder.id)
-      && staleChildSlots.length > 0 && freshChildSlots.length > 0
-      && pinned.has(freshChildSlots[freshChildSlots.length - 1].key)) {
+      && staleChildSlots.length > 0 && drawnChildSlots.length > 0
+      && pinned.has(drawnChildSlots[drawnChildSlots.length - 1].key)) {
       childNodes.push(<PinnedSessionDivider key={`pinned-divider-stale-${folder.id}`} />)
     }
-    const staleSection = renderStaleSection(folder.id, staleChildSlots, depth + 1, folder.name)
+    // The conductor leaves the stale section for the same reason it leaves the
+    // live list: the folder ROW is its card now, and a conductor whose last turn
+    // is old enough to be collapsed would otherwise be drawn twice the moment
+    // someone opened that section.
+    const staleSection = renderStaleSection(
+      folder.id,
+      bodyConductor ? staleChildSlots.filter(s => s.key !== bodyConductor.conductorKey) : staleChildSlots,
+      depth + 1,
+      folder.name,
+    )
     if (staleSection) childNodes.push(staleSection)
     // Hide folders with no matching children while the list is narrowed —
     // unless this folder owns the active create-failure notice: a create fired
@@ -4124,6 +4376,21 @@ function ChatSidebar({
           // them instead of behind them (`scroll-margin-top` in index.css).
           <div ref={setNodeRef} data-folder-drop={folder.id} style={{ '--folder-pin-stack': `calc(var(--folder-row-sticky-h) * ${depth + 1})` } as React.CSSProperties} className={`rounded-md transition-all mb-0.5${isOver ? ' ring-1 ring-accent' : ''}`}>
             {renderFolderHeader(folder, dragHandleProps, emptyBody, depth)}
+            {/* The conductor's status line, BELOW the pinned header rather than
+             *  inside it. The header's height is a CSS variable every nested
+             *  header's sticky offset is computed from and a Playwright spec
+             *  measures (`--folder-row-sticky-h`, index.css), so a second line in
+             *  it would push every deeper folder's pinned row out of place. Here
+             *  it reads as the line under the name and costs the header nothing.
+             *  Indented to the name column: pad 3 + glyph 12 + gap 4 = 19px, the
+             *  same algebra GUIDE 2 pins the name itself with. */}
+            {bodyConductor && (
+              <div style={{ paddingLeft: 19 }} data-testid={`folder-conductor-line-${folder.id}`}>
+                <FolderConductorStatusLine
+                  slotKey={bodyConductor.conductorKey}
+                  wantsUser={conductorWantsUser} />
+              </div>
+            )}
             {renderFolderCreateError(folder.id)}
             {wrapped && <FolderBody key={`folder-body-${folder.id}`} padding={FOLDER_BODY_OPEN_PADDING} open={!folder.collapsed && !forceCollapsed} instantClose={instantCloseId === folder.id}>{wrapped}</FolderBody>}
           </div>

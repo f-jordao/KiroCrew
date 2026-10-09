@@ -11688,7 +11688,9 @@
       "deleting_folders": "正在删除…",
       "archived_sessions_kept_other": "{{count}} 个已归档会话保留在“较早的会话”中",
       "archived_count_other": "已归档 {{count}} 个",
-      "waiting_for_memory": "等待空闲内存"
+      "waiting_for_memory": "等待空闲内存",
+      "conductor_chat": "对话",
+      "open_conductor_chat": "打开 {{name}} 指挥会话的对话"
     },
     "connectionsPage": {
       "action_failed": "操作失败：{{error}}",
@@ -12295,7 +12297,9 @@
         "decisions_runtime_error": "无法启动模型。",
         "decisions_runtime_retry": "重试",
         "dashboard": "动态仪表板",
-        "dashboard_desc": "开启仍在开发中的动态仪表板：聊天输入框上方显示状态行，侧边面板和队友页面提供仪表板视图，另有“全部仪表板”页面。布局仍在设计中，因此开启前不会显示。自动卡片开关也在这里。"
+        "dashboard_desc": "开启仍在开发中的动态仪表板：聊天输入框上方显示状态行，侧边面板和队友页面提供仪表板视图，另有“全部仪表板”页面。布局仍在设计中，因此开启前不会显示。自动卡片开关也在这里。",
+        "folder_conductor": "文件夹就是指挥者",
+        "folder_conductor_desc": "如果一个文件夹里，所有会话都由其中某一个会话开启，那个会话就直接变成文件夹这一行。文件夹仍然只占一行，右侧显示今天有多少会话、多少在等你回复、多少正在运行，名称下面显示它的状态。把指针移到这一行会出现“对话”，点一下就打开它的对话；它开启过的会话在展开后各占一行。若文件夹里没有这样一个会话，则保持原样。此功能仍在设计中，默认关闭，需要你手动开启。"
       },
       "kiroSignInCard": {
         "title": "Kiro 登录",

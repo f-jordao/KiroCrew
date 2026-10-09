@@ -1735,6 +1735,15 @@ export const SETTINGS_REGISTRY: SettingEntry[] =
     "occurrence": 1
   },
   {
+    "id": "developer.folder-is-the-conductor",
+    "label": "Folder is the conductor",
+    "labelKey": "pages.developer.featurePreviewsTab.folder_conductor",
+    "description": "In a folder whose sessions were all opened by one of them, that session becomes the folder row itself: the folder keeps one row, carries today's session count, waiting-on-you and running badges, and shows its status under the name. Hovering the row offers Chat, which opens that conversation, and the sessions it opened are drawn inside as single lines. A folder with no such session is unchanged. Still being designed, so it is off until you turn it on.",
+    "tab": "developer",
+    "type": "toggle",
+    "occurrence": 1
+  },
+  {
     "id": "developer.jev-api-key",
     "label": "Jev API key",
     "labelKey": "pages.developer.featurePreviewsTab.decisions_api_key_label",

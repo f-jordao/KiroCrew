@@ -11688,7 +11688,9 @@
       "deleting_folders": "삭제 중…",
       "archived_sessions_kept_other": "보관된 세션 {{count}}개는 이전 세션에 남습니다",
       "archived_count_other": "보관됨 {{count}}개",
-      "waiting_for_memory": "여유 RAM 대기 중"
+      "waiting_for_memory": "여유 RAM 대기 중",
+      "conductor_chat": "채팅",
+      "open_conductor_chat": "{{name}}을(를) 지휘하는 세션의 채팅 열기"
     },
     "connectionsPage": {
       "action_failed": "작업에 실패했습니다: {{error}}",
@@ -12295,7 +12297,9 @@
         "decisions_runtime_error": "모델을 시작하지 못했습니다.",
         "decisions_runtime_retry": "다시 시도",
         "dashboard": "동적 대시보드",
-        "dashboard_desc": "개발 중인 동적 대시보드를 켭니다. 채팅 입력란 위의 상태 행, 사이드 패널과 크루메이트 페이지의 대시보드 보기, 그리고 모든 대시보드 페이지가 포함됩니다. 레이아웃이 아직 설계 중이므로 켜기 전에는 표시되지 않습니다. 자동 카드 스위치도 여기에 있습니다."
+        "dashboard_desc": "개발 중인 동적 대시보드를 켭니다. 채팅 입력란 위의 상태 행, 사이드 패널과 크루메이트 페이지의 대시보드 보기, 그리고 모든 대시보드 페이지가 포함됩니다. 레이아웃이 아직 설계 중이므로 켜기 전에는 표시되지 않습니다. 자동 카드 스위치도 여기에 있습니다.",
+        "folder_conductor": "폴더가 곧 지휘 세션",
+        "folder_conductor_desc": "폴더 안의 세션이 모두 그중 하나가 연 것이라면, 그 세션이 폴더 줄 자체가 됩니다. 폴더는 한 줄 그대로이고, 오른쪽에 오늘의 세션 수와 답을 기다리는 것·돌고 있는 것의 표시가 붙으며, 이름 아래에 그 상태가 보입니다. 줄에 마우스를 올리면 채팅이 나타나 그 대화를 열고, 그 세션이 연 세션들은 안쪽에 한 줄씩 그려집니다. 그런 세션이 없는 폴더는 그대로 입니다. 아직 설계 중이라 켜기 전에는 꺼져 있습니다."
       },
       "kiroSignInCard": {
         "title": "Kiro 로그인",

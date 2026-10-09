@@ -4,7 +4,7 @@ import { ArrowRight } from 'lucide-react'
 import { SettingsSection, SettingsCard, SettingsToggle } from '../../components/settings'
 import { FeaturePreviewIntroButton, type FeaturePreviewIntro } from '../../components/FeaturePreviewIntroDialog'
 import { usePreviewFlag } from '../../hooks/usePreviewFlag'
-import { PREVIEW_ARTIFACT_DEPLOY, PREVIEW_CREW, PREVIEW_DASHBOARD, PREVIEW_INSTANCE_SESSIONS, PREVIEW_LAYOUT_HARNESS, PREVIEW_REMOTE_CREW_CHAT, PREVIEW_WEBHOOKS, setPreviewFlag } from '../../utils/previewFlags'
+import { PREVIEW_ARTIFACT_DEPLOY, PREVIEW_CREW, PREVIEW_DASHBOARD, PREVIEW_FOLDER_CONDUCTOR, PREVIEW_INSTANCE_SESSIONS, PREVIEW_LAYOUT_HARNESS, PREVIEW_REMOTE_CREW_CHAT, PREVIEW_WEBHOOKS, setPreviewFlag } from '../../utils/previewFlags'
 import { DecisionsCard } from './DecisionsCard'
 import AutomaticCardSetting from '../chat/command-center/AutomaticCardSetting'
 import { i18nT } from '../../i18n/t'
@@ -136,6 +136,7 @@ export function FeaturePreviewsSection() {
   const instanceSessions = usePreviewFlag(PREVIEW_INSTANCE_SESSIONS)
   const layoutHarness = usePreviewFlag(PREVIEW_LAYOUT_HARNESS)
   const dashboard = usePreviewFlag(PREVIEW_DASHBOARD)
+  const folderConductor = usePreviewFlag(PREVIEW_FOLDER_CONDUCTOR)
 
   return (
     // The wrapper exists for the legacy redirect: `?highlight=key:<anchor>`
@@ -301,6 +302,24 @@ export function FeaturePreviewsSection() {
           description={i18nT('pages.developer.featurePreviewsTab.layout_harness_desc')}
           checked={layoutHarness}
           onChange={v => setPreviewFlag(PREVIEW_LAYOUT_HARNESS, v)}
+        />
+      </SettingsCard>
+      {/* Folder is the conductor: a reshaping of the Sessions list, not a page.
+          Next to the remote-sessions card above for that reason — both change
+          the list every user is already looking at, so the toggle IS the whole
+          affordance and there is no door to link to.
+
+          NO "See what it looks like" either, and that is the missing-capture
+          rule: the surface only has anything to show in a sidebar that holds a
+          folder whose sessions were opened by one of them, which an isolated
+          capture instance has no honest way to stage. Add a builder the day a
+          real capture of a conducted folder exists. */}
+      <SettingsCard>
+        <SettingsToggle
+          label={i18nT('pages.developer.featurePreviewsTab.folder_conductor')}
+          description={i18nT('pages.developer.featurePreviewsTab.folder_conductor_desc')}
+          checked={folderConductor}
+          onChange={v => setPreviewFlag(PREVIEW_FOLDER_CONDUCTOR, v)}
         />
       </SettingsCard>
       {/* The Dynamic Dashboard: the dock above the composer, the side panel's

@@ -12056,7 +12056,9 @@
       "archived_count_many": "{{count}} arquivadas",
       "archived_count_one": "{{count}} arquivada",
       "archived_count_other": "{{count}} arquivadas",
-      "waiting_for_memory": "Aguardando RAM livre"
+      "waiting_for_memory": "Aguardando RAM livre",
+      "conductor_chat": "Chat",
+      "open_conductor_chat": "Abrir o chat da sessão que conduz {{name}}"
     },
     "connectionsPage": {
       "action_failed": "Falha na ação: {{error}}",
@@ -12671,7 +12673,9 @@
         "decisions_runtime_error": "Não foi possível iniciar o modelo.",
         "decisions_runtime_retry": "Tentar de novo",
         "dashboard": "Painel dinâmico",
-        "dashboard_desc": "Ativa o painel dinâmico, ainda em desenvolvimento: uma linha de status acima do compositor do chat, uma visualização Painel no painel lateral e na página de um membro da equipe, e uma página Todos os painéis. O layout ainda está sendo definido, por isso só aparece quando você o ativa. Também contém o interruptor dos cartões automáticos."
+        "dashboard_desc": "Ativa o painel dinâmico, ainda em desenvolvimento: uma linha de status acima do compositor do chat, uma visualização Painel no painel lateral e na página de um membro da equipe, e uma página Todos os painéis. O layout ainda está sendo definido, por isso só aparece quando você o ativa. Também contém o interruptor dos cartões automáticos.",
+        "folder_conductor": "A pasta é a sessão que conduz",
+        "folder_conductor_desc": "Numa pasta cujas sessões foram todas abertas por uma delas, essa sessão passa a ser a linha da pasta: a pasta continua a ocupar uma linha, leva o número de sessões de hoje e as marcas das que esperam por ti e das que estão a correr, e mostra o seu estado por baixo do nome. Passar o rato na linha mostra Chat, que abre essa conversa, e as sessões que ela abriu são desenhadas lá dentro, uma linha cada. Uma pasta sem uma sessão assim não muda. Ainda está a ser desenhada, por isso fica desligada até a ligares."
       },
       "kiroSignInCard": {
         "title": "Login do Kiro",

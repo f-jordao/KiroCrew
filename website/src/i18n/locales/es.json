@@ -12056,7 +12056,9 @@
       "archived_count_many": "{{count}} archivadas",
       "archived_count_one": "{{count}} archivada",
       "archived_count_other": "{{count}} archivadas",
-      "waiting_for_memory": "Esperando RAM libre"
+      "waiting_for_memory": "Esperando RAM libre",
+      "conductor_chat": "Chat",
+      "open_conductor_chat": "Abrir el chat de la sesión que dirige {{name}}"
     },
     "connectionsPage": {
       "action_failed": "La acción falló: {{error}}",
@@ -12671,7 +12673,9 @@
         "decisions_runtime_error": "No se pudo iniciar el modelo.",
         "decisions_runtime_retry": "Reintentar",
         "dashboard": "Panel dinámico",
-        "dashboard_desc": "Activa el panel dinámico, aún en desarrollo: una fila de estado encima del cuadro de redacción del chat, una vista Panel en el panel lateral y en la página de un compañero de equipo, y una página Todos los paneles. Su diseño aún se está definiendo, así que no se muestra hasta que lo actives. También contiene el interruptor de las tarjetas automáticas."
+        "dashboard_desc": "Activa el panel dinámico, aún en desarrollo: una fila de estado encima del cuadro de redacción del chat, una vista Panel en el panel lateral y en la página de un compañero de equipo, y una página Todos los paneles. Su diseño aún se está definiendo, así que no se muestra hasta que lo actives. También contiene el interruptor de las tarjetas automáticas.",
+        "folder_conductor": "La carpeta es la sesión que dirige",
+        "folder_conductor_desc": "En una carpeta cuyas sesiones las abrió una sola de ellas, esa sesión pasa a ser la fila de la carpeta: la carpeta sigue ocupando una fila, lleva el número de sesiones de hoy y las marcas de las que te esperan y las que están en marcha, y muestra su estado debajo del nombre. Al pasar el ratón por la fila aparece Chat, que abre esa conversación, y las sesiones que abrió se dibujan dentro en una sola línea cada una. Una carpeta sin una sesión así no cambia. Se sigue diseñando, así que está apagada hasta que la enciendas."
       },
       "kiroSignInCard": {
         "title": "Inicio de sesión en Kiro",
